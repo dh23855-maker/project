@@ -5,19 +5,26 @@
 """
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.classifier import Classifier
 from app.config import load_settings
 from app.db import make_pool
-from app.routers import auth, inquiries
+from app.drafting import OpenAIDrafter
+from app.policy import PolicyBook
+from app.routers import auth, inquiries, logs, settings as settings_router
+from app.workflow import WorkflowError
 
 
-def create_app(schema=None, classifier=None):
-    """schema, classifier는 시험에서만 쓴다. 평소에는 비워 둔다."""
+def create_app(schema=None, classifier=None, policy=None, drafter=None):
+    """schema, classifier, policy, drafter는 시험에서만 쓴다. 평소에는 비워 둔다."""
     settings = load_settings()
+    policy = policy or PolicyBook()
+    drafter = drafter or OpenAIDrafter(settings.openai_api_key, settings.openai_model)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -25,6 +32,8 @@ def create_app(schema=None, classifier=None):
         pool.open(wait=True, timeout=30)
         app.state.pool = pool
         app.state.classifier = classifier or Classifier()
+        app.state.policy = policy
+        app.state.drafter = drafter
         try:
             yield
         finally:
@@ -49,6 +58,15 @@ def create_app(schema=None, classifier=None):
         allow_headers=["*"],
     )
 
+    @app.exception_handler(WorkflowError)
+    async def workflow_error_handler(request: Request, exc: WorkflowError):
+        body = {"detail": exc.message}
+        if exc.inquiry is not None:  # 충돌이면 최신 상태를 함께 돌려준다
+            body["inquiry"] = jsonable_encoder(exc.inquiry)
+        return JSONResponse(status_code=exc.status_code, content=body)
+
     app.include_router(auth.router)
     app.include_router(inquiries.router)
+    app.include_router(settings_router.router)
+    app.include_router(logs.router)
     return app

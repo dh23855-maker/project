@@ -6,7 +6,8 @@ from pathlib import Path
 from ml.labels import DIFFICULTIES, LABELS
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
-TRAIN_PATH = BACKEND_DIR / "data" / "train" / "train.csv"
+TRAIN_PATH = BACKEND_DIR / "data" / "train" / "train.csv"  # 처음 만든 학습용 문의 300개
+TRAIN_EXTRA_PATH = BACKEND_DIR / "data" / "train" / "train_extra.csv"  # 구어체·긴 문장 등으로 보강한 학습용 문의
 EVAL_PATH = BACKEND_DIR / "data" / "eval" / "eval.csv"
 
 
@@ -51,6 +52,15 @@ def load_dataset(path, with_difficulty=False):
 
     if not rows:
         raise ValueError(f"{path.name}: 문의가 하나도 없습니다.")
+    return rows
+
+
+def load_training_rows():
+    """학습에 쓰는 문의 전체: 처음 만든 300개 + 보강한 문의. 파일이 합쳐진 뒤의 중복도 확인한다."""
+    rows = load_dataset(TRAIN_PATH) + load_dataset(TRAIN_EXTRA_PATH)
+    dup = find_duplicates(rows)
+    if dup:
+        raise ValueError(f"학습용 문의에 중복 문장이 {len(dup)}개 있습니다. 예: {dup[0]}")
     return rows
 
 

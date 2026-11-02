@@ -10,10 +10,12 @@ from pathlib import Path
 
 from ml.data import (
     EVAL_PATH,
+    TRAIN_EXTRA_PATH,
     TRAIN_PATH,
     find_duplicates,
     find_overlap,
     load_dataset,
+    load_training_rows,
 )
 from ml.evaluate import compute_metrics, run
 from ml.labels import LABELS
@@ -39,6 +41,37 @@ class TrainDataTest(unittest.TestCase):
 
     def test_no_duplicates(self):
         self.assertEqual(find_duplicates(self.rows), [])
+
+
+class TrainExtraDataTest(unittest.TestCase):
+    """구어체·긴 문장으로 보강한 학습용 문의."""
+
+    def setUp(self):
+        self.extra = load_dataset(TRAIN_EXTRA_PATH)
+        self.all = load_training_rows()
+
+    def test_every_label_has_enough_extra(self):
+        counts = Counter(r["label"] for r in self.extra)
+        for label in LABELS:
+            self.assertGreaterEqual(counts[label], 30, f"{label}: {counts[label]}개")
+
+    def test_combined_is_the_sum_and_has_no_duplicates(self):
+        self.assertEqual(len(self.all), 300 + len(self.extra))
+        self.assertEqual(find_duplicates(self.all), [])
+
+    def test_extra_does_not_copy_the_evaluation_questions(self):
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from sklearn.metrics.pairwise import cosine_similarity
+
+        evals = load_dataset(EVAL_PATH, with_difficulty=True)
+        self.assertEqual(find_overlap(evals, self.extra), [])  # 똑같은 문장 없음
+        vec = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 3), sublinear_tf=True)
+        vec.fit([r["text"] for r in self.all + evals])
+        sim = cosine_similarity(
+            vec.transform([r["text"] for r in self.extra]), vec.transform([r["text"] for r in evals])
+        )
+        too_close = [self.extra[i]["text"] for i in range(len(self.extra)) if sim[i].max() >= 0.55]
+        self.assertEqual(too_close, [], "평가용 문의와 너무 비슷한 보강 문장")
 
 
 class LoadDatasetTest(unittest.TestCase):
@@ -130,27 +163,28 @@ class MetricsTest(unittest.TestCase):
 
 
 class EvaluateGuardTest(unittest.TestCase):
-    def test_refuses_when_eval_overlaps_train(self):
-        train_text = load_dataset(TRAIN_PATH)[0]["text"]
-        with tempfile.TemporaryDirectory() as d:
-            path = write_csv(
-                d, "eval.csv", f'text,label,difficulty\n"{train_text}",buyer_delivery,easy\n'
-            )
-            with self.assertRaisesRegex(ValueError, "똑같은 문장"):
-                run("v1", eval_path=path, out_path=Path(d) / "out.json")
+    def test_refuses_when_eval_overlaps_train_or_extra(self):
+        for source in (TRAIN_PATH, TRAIN_EXTRA_PATH):
+            with self.subTest(source=source.name):
+                text = load_dataset(source)[0]["text"]
+                with tempfile.TemporaryDirectory() as d:
+                    path = write_csv(
+                        d, "eval.csv", f'text,label,difficulty\n"{text}",buyer_delivery,easy\n'
+                    )
+                    with self.assertRaisesRegex(ValueError, "똑같은 문장"):
+                        run(eval_path=path, out_path=Path(d) / "out.json")
 
 
 class ModelTest(unittest.TestCase):
     def test_train_and_predict(self):
         from ml.evaluate import predict
-        from ml.train_v1 import train
+        from ml.train import train
 
         with tempfile.TemporaryDirectory() as d:
             bundle, n, saved = train(save_to=Path(d) / "m.joblib")
-            self.assertEqual(n, 300)
+            self.assertEqual(n, len(load_training_rows()))
             self.assertTrue(saved.exists())
-            # 학습에 나온 단어가 그대로 들어간 문장으로, 학습과 예측이 이어지는지만 본다.
-            # (성능은 평가용 문의로 따로 잰다.)
+            # 학습과 예측이 이어지는지 본다. (성능은 평가용 문의로 따로 잰다.)
             rows = [
                 {"text": "택배 배송 아직 안 왔어요", "label": "buyer_delivery"},
                 {"text": "정산 예정일 알려주세요", "label": "seller_settlement"},
@@ -159,6 +193,17 @@ class ModelTest(unittest.TestCase):
             self.assertEqual(predictions, ["buyer_delivery", "seller_settlement"])
             for c in confidences:
                 self.assertTrue(0.0 < c <= 1.0)
+
+    def test_character_pieces_understand_attached_particles(self):
+        """'정산금이'처럼 조사가 붙은 말도 알아본다 (단어 방식 모델이 놓치던 부분)."""
+        from ml.evaluate import predict
+        from ml.train import train
+
+        with tempfile.TemporaryDirectory() as d:
+            bundle, _, _ = train(save_to=Path(d) / "m.joblib")
+            rows = [{"text": "정산금이 언제 입금되나요", "label": "seller_settlement"}]
+            predictions, _ = predict(bundle, rows)
+            self.assertEqual(predictions, ["seller_settlement"])
 
 
 @unittest.skipUnless(EVAL_PATH.exists(), "평가용 문의(eval.csv)가 아직 없습니다")
@@ -175,7 +220,7 @@ class EvalDataTest(unittest.TestCase):
         self.assertEqual(find_duplicates(self.rows), [])
 
     def test_not_in_train(self):
-        self.assertEqual(find_overlap(load_dataset(TRAIN_PATH), self.rows), [])
+        self.assertEqual(find_overlap(load_training_rows(), self.rows), [])
 
 
 if __name__ == "__main__":

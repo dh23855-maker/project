@@ -7,24 +7,18 @@
     .venv\\Scripts\\python.exe -m unittest discover -s tests -t . -v
 """
 import unittest
-import uuid
 
 import psycopg
-from fastapi.testclient import TestClient
-from psycopg import sql
-from psycopg.rows import dict_row
 
 from app import inquiries as service
-from app.classifier import Classifier
-from app.config import load_settings
-from app.main import create_app
 from app.migrate import apply_migrations
 from app.seed import AGENTS, PRACTICE_PASSWORD, read_seed_texts, seed_agents, seed_inquiries
-from ml.data import TRAIN_PATH, load_dataset
-from ml.train_v1 import model_path, train
+from ml.data import load_training_rows
+from tests.base import ApiTestBase
 
 BAD_CREDENTIALS = "아이디 또는 비밀번호가 맞지 않습니다."
 NOT_LOGGED_IN = "로그인이 필요합니다."
+
 
 
 class DecideStatusTest(unittest.TestCase):
@@ -61,56 +55,12 @@ class SeedDataTest(unittest.TestCase):
         texts = read_seed_texts()
         self.assertEqual(len(texts), 20)
         self.assertEqual(len(set(texts)), 20)
-        train_texts = {r["text"] for r in load_dataset(TRAIN_PATH)}
+        train_texts = {r["text"] for r in load_training_rows()}
         self.assertEqual(train_texts & set(texts), set())
 
 
-class ApiTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        if not model_path().exists():
-            train()
-        cls.settings = load_settings()
-        cls.schema = "test_" + uuid.uuid4().hex[:10]
-        cls.classifier = Classifier()
-
-        with psycopg.connect(cls.settings.database_url, prepare_threshold=None) as conn:
-            apply_migrations(conn, cls.schema)
-        with cls.connect() as conn:
-            seed_agents(conn)
-            seed_inquiries(conn, cls.classifier)
-            conn.commit()
-
-        cls.app = create_app(schema=cls.schema, classifier=cls.classifier)
-        cls._lifespan = TestClient(cls.app)
-        cls._lifespan.__enter__()
-
-    @classmethod
-    def tearDownClass(cls):
-        cls._lifespan.__exit__(None, None, None)
-        with psycopg.connect(cls.settings.database_url, prepare_threshold=None) as conn:
-            conn.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(cls.schema)))
-            conn.commit()
-
-    @classmethod
-    def connect(cls):
-        conn = psycopg.connect(cls.settings.database_url, row_factory=dict_row, prepare_threshold=None)
-        conn.execute(sql.SQL("SET search_path TO {}").format(sql.Identifier(cls.schema)))
-        return conn
-
-    def new_client(self):
-        return TestClient(self.app)
-
-    def login(self, username="kim", password=PRACTICE_PASSWORD):
-        client = self.new_client()
-        response = client.post("/api/auth/login", json={"username": username, "password": password})
-        self.assertEqual(response.status_code, 200, response.text)
-        return client
-
-    def set_threshold(self, value):
-        with self.connect() as conn:
-            conn.execute("UPDATE settings SET value = %s WHERE key = 'confidence_threshold'", (str(value),))
-            conn.commit()
+class ApiTest(ApiTestBase):
+    """로그인, 문의 목록·등록, DB 표 설계."""
 
     # --- DB 표 설계 -------------------------------------------------------
 
@@ -151,7 +101,7 @@ class ApiTest(unittest.TestCase):
     def test_seeding_twice_adds_nothing(self):
         with self.connect() as conn:
             self.assertEqual(seed_agents(conn), 0)
-            self.assertEqual(seed_inquiries(conn, self.classifier), 0)
+            self.assertEqual(seed_inquiries(conn, self.classifier, self.policy, self.drafter), 0)
             conn.rollback()
 
     def test_passwords_are_not_stored_in_plain_text(self):
@@ -234,12 +184,19 @@ class ApiTest(unittest.TestCase):
         for item in items:
             self.assertIn(item["status_ko"], ("승인 대기", "직접 작성", "처리 완료"))
 
-    def test_seed_statuses_follow_the_threshold_rule(self):
-        items = [i for i in self.login().get("/api/inquiries").json() if i["source"] == "seed"]
+    def test_seed_statuses_follow_the_rules(self):
+        client = self.login()
+        items = [i for i in client.get("/api/inquiries").json() if i["source"] == "seed"]
         for item in items:
-            expected = "awaiting_approval" if item["confidence_percent"] >= 70 else "manual"
-            self.assertEqual(item["status"], expected, item["body"])
             self.assertIsNotNone(item["predicted_label_ko"])
+            if item["confidence_percent"] < 70:
+                self.assertEqual(item["status"], "manual", item["body"])  # 확신도가 낮으면 직접 작성
+            if item["status"] == "awaiting_approval":
+                # 승인 대기는 확신도가 기준 이상이고, 근거를 찾아 초안까지 붙은 문의다
+                self.assertGreaterEqual(item["confidence_percent"], 70)
+                detail = client.get(f"/api/inquiries/{item['id']}").json()
+                self.assertIsNotNone(detail["current_draft"], item["body"])
+                self.assertTrue(detail["evidence"], item["body"])
         statuses = {i["status"] for i in items}
         self.assertEqual(statuses, {"awaiting_approval", "manual"}, "승인 대기와 직접 작성이 모두 있어야 시연이 됩니다")
 
@@ -286,15 +243,16 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(self.login().get("/api/inquiries/99999999").status_code, 404)
 
     def test_threshold_decides_the_status(self):
-        body = "택배 배송이 아직 안 왔어요 송장 조회가 안 돼요"
+        body = "출고 알림이 왔는데 택배 송장 조회가 안 돼요 배송 조회가 언제부터 되나요"
         client = self.login()
         try:
             self.set_threshold(100)  # 확신도가 100%일 수는 없으므로 모두 직접 작성
             high = client.post("/api/inquiries", json={"body": body}).json()
             self.assertEqual(high["status"], "manual")
-            self.set_threshold(0)  # 모두 승인 대기
+            self.set_threshold(0)  # 확신도 조건은 모두 통과. 근거가 있으면 승인 대기
             low = client.post("/api/inquiries", json={"body": body}).json()
-            self.assertEqual(low["status"], "awaiting_approval")
+            self.assertEqual(low["predicted_label"], "buyer_delivery")
+            self.assertEqual(low["status"], "awaiting_approval", low["auto_note"])
         finally:
             self.set_threshold(70)
 

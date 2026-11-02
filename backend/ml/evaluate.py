@@ -7,9 +7,8 @@
   - 난이도별 정확도 (평가 파일에 difficulty 열이 있을 때)
 
 실행 (backend 폴더에서):
-    .venv\\Scripts\\python.exe -m ml.evaluate --version v1
+    .venv\\Scripts\\python.exe -m ml.evaluate
 """
-import argparse
 import json
 from collections import Counter
 from datetime import datetime
@@ -17,10 +16,10 @@ from datetime import datetime
 from ml.data import (
     BACKEND_DIR,
     EVAL_PATH,
-    TRAIN_PATH,
     find_duplicates,
     find_overlap,
     load_dataset,
+    load_training_rows,
 )
 from ml.labels import DIFFICULTIES, LABEL_KO, LABELS
 
@@ -114,11 +113,12 @@ def format_report(result):
     return "\n".join(lines)
 
 
-def run(version, eval_path=EVAL_PATH, train_path=TRAIN_PATH, out_path=None):
-    from ml.train_v1 import load_model  # scikit-learn이 필요한 부분은 여기서만 불러온다
+def run(eval_path=EVAL_PATH, out_path=None):
+    """지금 쓰는 분류 모델 하나를 평가한다."""
+    from ml.train import load_model  # scikit-learn이 필요한 부분은 여기서만 불러온다
 
     eval_rows = load_dataset(eval_path, with_difficulty=True)
-    train_rows = load_dataset(train_path)
+    train_rows = load_training_rows()  # 처음 300개 + 보강분. 평가용과 겹치면 안 된다
 
     dup = find_duplicates(eval_rows)
     if dup:
@@ -130,12 +130,11 @@ def run(version, eval_path=EVAL_PATH, train_path=TRAIN_PATH, out_path=None):
             f"평가가 부풀려지므로 중단합니다. 예: {overlap[0]}"
         )
 
-    bundle = load_model(version)
+    bundle = load_model()
     predictions, confidences = predict(bundle, eval_rows)
     result = compute_metrics(eval_rows, predictions, confidences)
     result.update(
         {
-            "version": bundle["version"],
             "description": bundle["description"],
             "evaluated_at": datetime.now().isoformat(timespec="seconds"),
             "train_size": len(train_rows),
@@ -143,17 +142,14 @@ def run(version, eval_path=EVAL_PATH, train_path=TRAIN_PATH, out_path=None):
         }
     )
 
-    out_path = out_path or RESULTS_DIR / f"{version}_eval.json"
+    out_path = out_path or RESULTS_DIR / "eval.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     return result, out_path
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("--version", default="v1", help="평가할 모델 버전 (기본 v1)")
-    args = parser.parse_args()
-    result, out = run(args.version)
-    print(f"[{result['version']}] {result['description']}")
+    result, out = run()
+    print(f"[모델] {result['description']} (학습용 문의 {result['train_size']}개)")
     print(format_report(result))
     print(f"\n결과 저장: {out}")

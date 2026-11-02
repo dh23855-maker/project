@@ -8,10 +8,14 @@
 ```
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe -m ml.train_v1        # 분류 모델 학습 (모델 파일은 Git에 올리지 않음)
+.venv\Scripts\python.exe -m ml.train           # 분류 모델 학습 (모델 파일은 Git에 올리지 않음)
 .venv\Scripts\python.exe -m app.migrate        # DB 표 만들기 (여러 번 실행해도 안전)
-.venv\Scripts\python.exe -m app.seed           # 상담사 3명과 가짜 문의 20개 넣기 (여러 번 실행해도 안전)
+.venv\Scripts\python.exe -m app.seed           # 상담사 3명, 위험 표현 20개, 가짜 문의 20개 넣기 (여러 번 실행해도 안전)
 ```
+
+`app.seed`는 승인 대기가 될 문의의 초안을 OpenAI로 만들기 때문에 `.env`에 `OPENAI_API_KEY`와 `OPENAI_MODEL`이 필요합니다.
+분류 모델이나 정책 문서를 바꾼 뒤에는 `app.seed --reset`으로 가짜 문의 20개를 지우고 새 모델로 다시 넣어 상태를 새로 잡습니다.
+(상담사가 이미 처리한 가짜 문의가 하나라도 있으면 아무것도 지우지 않고 멈춥니다.)
 
 ## 서버 실행
 
@@ -42,14 +46,22 @@ DB 시험은 `test_`로 시작하는 임시 영역에 표를 새로 만들어 �
 ## 평가 (분류 모델 성적)
 
 ```
-.venv\Scripts\python.exe -m ml.evaluate --version v1
+.venv\Scripts\python.exe -m ml.evaluate
 ```
+
+정답이 달린 평가용 문의 140개로 정확도, 종류별 정확도, 헷갈린 부분을 계산해 `ml/results/eval.json`에 저장합니다.
+(`ml/results/v1_eval.json`은 개선 전 첫 모델의 기록입니다.)
+
+## 분류 모델
+
+글자 조각(2~3글자) TF-IDF + 로지스틱 회귀입니다. 학습용 문의만 쓴 교차 검증으로 단어 방식(74%)보다 글자 조각 방식(88%)이 낫다고 보고 골랐습니다. 상세는 `ml/train.py` 머리말을 보세요.
 
 ## 폴더
 
 | 폴더 | 내용 |
 |---|---|
-| `app/` | 서버 (로그인, 문의) |
+| `app/` | 서버 (로그인, 문의, 승인 흐름, 설정, 작업 기록) |
 | `ml/` | 분류 모델 학습과 평가 |
+| `policies/` | 정책 문서 (`policy_clauses.md`, 조항 47개) |
 | `data/` | 학습용·평가용 문의 (설명은 `data/README.md`) |
 | `tests/` | 시험 |
