@@ -112,7 +112,7 @@
 | 서버 | FastAPI (파이썬) | 화면의 요청을 받아 처리하는 곳 |
 | 문의 분류 | scikit-learn | 직접 학습시키는 분류 모델 |
 | 답장 초안 | OpenAI API | 초안 문장을 만들어 주는 외부 AI |
-| 데이터 저장 | PostgreSQL (Neon 또는 Supabase) | 문의, 초안, 작업 기록을 저장하는 클라우드 DB |
+| 데이터 저장 | PostgreSQL (Supabase) | 문의, 초안, 작업 기록을 저장하는 클라우드 DB |
 
 비밀번호와 API 키는 `.env` 파일에만 두고, Git에는 올라가지 않도록 `.gitignore`로 막아 두었습니다.
 

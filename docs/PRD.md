@@ -145,7 +145,7 @@
 
 ### 6-2. 정해진 사용 기술 (참고)
 
-화면은 React, 서버는 FastAPI(파이썬), 분류 모델은 scikit-learn, 초안은 OpenAI API, 저장소는 클라우드 PostgreSQL(Neon 또는 Supabase)입니다. 비밀번호와 API 키는 `.env`에만 둡니다.
+화면은 React, 서버는 FastAPI(파이썬), 분류 모델은 scikit-learn, 초안은 OpenAI API, 저장소는 클라우드 PostgreSQL(Supabase)입니다. 비밀번호와 API 키는 `.env`에만 둡니다.
 
 ### 6-3. 아직 정하지 않은 내용 (미정)
 
