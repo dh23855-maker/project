@@ -1,0 +1,15 @@
+# Secrets (keep the example file tracked)
+.env
+.env.*
+!.env.example
+
+# Dependencies
+.venv/
+node_modules/
+
+# Build output
+dist/
+__pycache__/
+
+# Logs
+*.log
