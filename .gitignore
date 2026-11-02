@@ -13,3 +13,6 @@ __pycache__/
 
 # Logs
 *.log
+
+# Trained model files (can be rebuilt with the training script)
+backend/ml/models/

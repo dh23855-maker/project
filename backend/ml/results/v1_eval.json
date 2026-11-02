@@ -1,0 +1,605 @@
+{
+  "total": 140,
+  "correct": 84,
+  "accuracy": 0.6,
+  "per_label": {
+    "buyer_delivery": {
+      "total": 20,
+      "correct": 15,
+      "accuracy": 0.75
+    },
+    "buyer_inspection_result": {
+      "total": 20,
+      "correct": 12,
+      "accuracy": 0.6
+    },
+    "buyer_cancel_refund": {
+      "total": 20,
+      "correct": 13,
+      "accuracy": 0.65
+    },
+    "buyer_payment": {
+      "total": 20,
+      "correct": 10,
+      "accuracy": 0.5
+    },
+    "seller_inspection_fail": {
+      "total": 20,
+      "correct": 13,
+      "accuracy": 0.65
+    },
+    "seller_penalty": {
+      "total": 20,
+      "correct": 13,
+      "accuracy": 0.65
+    },
+    "seller_settlement": {
+      "total": 20,
+      "correct": 8,
+      "accuracy": 0.4
+    }
+  },
+  "per_difficulty": {
+    "easy": {
+      "total": 70,
+      "correct": 60,
+      "accuracy": 0.8571
+    },
+    "medium": {
+      "total": 42,
+      "correct": 15,
+      "accuracy": 0.3571
+    },
+    "hard": {
+      "total": 28,
+      "correct": 9,
+      "accuracy": 0.3214
+    }
+  },
+  "confusions": [
+    {
+      "true": "seller_settlement",
+      "predicted": "buyer_delivery",
+      "count": 7
+    },
+    {
+      "true": "buyer_payment",
+      "predicted": "buyer_delivery",
+      "count": 4
+    },
+    {
+      "true": "seller_inspection_fail",
+      "predicted": "buyer_delivery",
+      "count": 4
+    },
+    {
+      "true": "seller_penalty",
+      "predicted": "buyer_cancel_refund",
+      "count": 3
+    },
+    {
+      "true": "buyer_cancel_refund",
+      "predicted": "buyer_delivery",
+      "count": 3
+    },
+    {
+      "true": "buyer_inspection_result",
+      "predicted": "buyer_delivery",
+      "count": 3
+    },
+    {
+      "true": "buyer_inspection_result",
+      "predicted": "buyer_payment",
+      "count": 2
+    },
+    {
+      "true": "seller_inspection_fail",
+      "predicted": "seller_penalty",
+      "count": 2
+    },
+    {
+      "true": "buyer_delivery",
+      "predicted": "buyer_cancel_refund",
+      "count": 2
+    },
+    {
+      "true": "buyer_inspection_result",
+      "predicted": "seller_inspection_fail",
+      "count": 2
+    },
+    {
+      "true": "buyer_payment",
+      "predicted": "buyer_cancel_refund",
+      "count": 2
+    },
+    {
+      "true": "seller_settlement",
+      "predicted": "seller_penalty",
+      "count": 2
+    },
+    {
+      "true": "buyer_cancel_refund",
+      "predicted": "buyer_payment",
+      "count": 2
+    },
+    {
+      "true": "buyer_payment",
+      "predicted": "seller_settlement",
+      "count": 2
+    },
+    {
+      "true": "seller_penalty",
+      "predicted": "seller_inspection_fail",
+      "count": 2
+    },
+    {
+      "true": "buyer_inspection_result",
+      "predicted": "buyer_cancel_refund",
+      "count": 1
+    },
+    {
+      "true": "seller_settlement",
+      "predicted": "buyer_cancel_refund",
+      "count": 1
+    },
+    {
+      "true": "buyer_cancel_refund",
+      "predicted": "buyer_inspection_result",
+      "count": 1
+    },
+    {
+      "true": "buyer_payment",
+      "predicted": "buyer_inspection_result",
+      "count": 1
+    },
+    {
+      "true": "seller_settlement",
+      "predicted": "seller_inspection_fail",
+      "count": 1
+    },
+    {
+      "true": "buyer_delivery",
+      "predicted": "seller_penalty",
+      "count": 1
+    },
+    {
+      "true": "seller_penalty",
+      "predicted": "seller_settlement",
+      "count": 1
+    },
+    {
+      "true": "buyer_cancel_refund",
+      "predicted": "seller_inspection_fail",
+      "count": 1
+    },
+    {
+      "true": "seller_penalty",
+      "predicted": "buyer_delivery",
+      "count": 1
+    },
+    {
+      "true": "seller_inspection_fail",
+      "predicted": "buyer_cancel_refund",
+      "count": 1
+    },
+    {
+      "true": "seller_settlement",
+      "predicted": "buyer_inspection_result",
+      "count": 1
+    },
+    {
+      "true": "buyer_delivery",
+      "predicted": "buyer_inspection_result",
+      "count": 1
+    },
+    {
+      "true": "buyer_delivery",
+      "predicted": "buyer_payment",
+      "count": 1
+    },
+    {
+      "true": "buyer_payment",
+      "predicted": "seller_inspection_fail",
+      "count": 1
+    }
+  ],
+  "wrong": [
+    {
+      "text": "구매자가 배송 늦는다고 환불 요구했다고 저한테 수수료 물어내라고 하시면 안되죠. 택배사가 늦은 건데 왜 저한테 벌점을 주나요?",
+      "true": "seller_penalty",
+      "predicted": "buyer_cancel_refund",
+      "difficulty": "hard",
+      "confidence": 0.544
+    },
+    {
+      "text": "S등급이라고 적혀있었는데 막상 받아보니까 기스가 엄청 많아요. 이러면 안되는거 아닌가요",
+      "true": "buyer_inspection_result",
+      "predicted": "buyer_payment",
+      "difficulty": "medium",
+      "confidence": 0.2243
+    },
+    {
+      "text": "돈 들어올 때까지 얼마나 걸리는지 궁금합니다. 카드로 샀어요.",
+      "true": "buyer_cancel_refund",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.2434
+    },
+    {
+      "text": "결제창에서 계속 오류가 나면서 안 넘어갑니다. 확인 부탁드려요.",
+      "true": "buyer_payment",
+      "predicted": "buyer_delivery",
+      "difficulty": "easy",
+      "confidence": 0.3216
+    },
+    {
+      "text": "배송은 어제 잘 받았는데요, 아무리 봐도 가품 의심이 들어서 환불 신청하고 싶습니다. 정품 판정하신 근거를 다시 확인해주세요.",
+      "true": "buyer_inspection_result",
+      "predicted": "buyer_cancel_refund",
+      "difficulty": "hard",
+      "confidence": 0.3755
+    },
+    {
+      "text": "물건은 벌써 도착했다는데 제 통장으로는 왜 아직 안 꽂히나요?",
+      "true": "seller_settlement",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.4367
+    },
+    {
+      "text": "불합격돼서 페널티 10% 부과된다고 알림이 왔는데, 제가 가품을 보낸 것도 아니고 단순 박스 훼손인데 너무 억울합니다. 다시 확인해주세요.",
+      "true": "seller_inspection_fail",
+      "predicted": "seller_penalty",
+      "difficulty": "hard",
+      "confidence": 0.3703
+    },
+    {
+      "text": "돈 들어오는 날짜가 주말이면 다음 주 월요일에 들어오나요?",
+      "true": "seller_settlement",
+      "predicted": "buyer_cancel_refund",
+      "difficulty": "medium",
+      "confidence": 0.2453
+    },
+    {
+      "text": "이사 가기 전 주소로 잘못 적었는데 벌써 출발했다고 하네요ㅠㅠ 어떡하죠 방법이 없을까요",
+      "true": "buyer_delivery",
+      "predicted": "buyer_cancel_refund",
+      "difficulty": "medium",
+      "confidence": 0.3042
+    },
+    {
+      "text": "어제 도착한 상품인데 검수 퀄리티가 마음에 안 들어서 그냥 반품할게요. 취소 처리 부탁드려요.",
+      "true": "buyer_cancel_refund",
+      "predicted": "buyer_inspection_result",
+      "difficulty": "hard",
+      "confidence": 0.3552
+    },
+    {
+      "text": "이 정도 미세한 스크래치로 빠꾸먹이는 건 너무 깐깐한 거 아닌가요",
+      "true": "seller_inspection_fail",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.3787
+    },
+    {
+      "text": "팔린 지가 언젠데 아직도 입금대기 상태인지 ㅡㅡ 확인좀요",
+      "true": "seller_settlement",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.2465
+    },
+    {
+      "text": "운동화 검수 기준이 어떻게 되나요? 박스 찌그러짐도 포함되나요?",
+      "true": "buyer_inspection_result",
+      "predicted": "seller_inspection_fail",
+      "difficulty": "easy",
+      "confidence": 0.3699
+    },
+    {
+      "text": "통과 못했다고 알림 떴는데 내 물건 돌려받으려면 배송비 따로 내야 함?",
+      "true": "seller_inspection_fail",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.2208
+    },
+    {
+      "text": "물건 잘못 보냈다고 앞으로 한 달 동안 거래 못하게 막아두는 건 너무하네요. 좀 풀어주세요 ㅜㅜ",
+      "true": "seller_penalty",
+      "predicted": "buyer_cancel_refund",
+      "difficulty": "medium",
+      "confidence": 0.4562
+    },
+    {
+      "text": "체크카드로 사려고 하는데 자꾸 한도 초과라고 떠요. 앱카드 문젠가요?",
+      "true": "buyer_payment",
+      "predicted": "buyer_inspection_result",
+      "difficulty": "medium",
+      "confidence": 0.3065
+    },
+    {
+      "text": "가입할 때 받은 할인 쿠폰을 적용하려고 하는데 버튼이 안 눌려요.",
+      "true": "buyer_payment",
+      "predicted": "buyer_cancel_refund",
+      "difficulty": "easy",
+      "confidence": 0.264
+    },
+    {
+      "text": "가상계좌로 어제 밤에 뱅킹 입금했는데 아직도 입금대기라고 나오네요...",
+      "true": "buyer_payment",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.3415
+    },
+    {
+      "text": "페널티 요금 차감하고 남은 금액이 들어오는 건 알겠는데, 검수센터 입고된 지가 언젠데 아직도 돈을 안 줍니까? 당장 입금해주세요.",
+      "true": "seller_settlement",
+      "predicted": "seller_penalty",
+      "difficulty": "hard",
+      "confidence": 0.8635
+    },
+    {
+      "text": "배송이 너무 느려서 도저히 못 기다리겠어요. 결제한 거 다 무효로 할 테니까 제 국민은행 계좌로 당장 돈 돌려주세요.",
+      "true": "buyer_cancel_refund",
+      "predicted": "buyer_delivery",
+      "difficulty": "hard",
+      "confidence": 0.424
+    },
+    {
+      "text": "실수로 두 번 결제됐는데 중복 결제된 건 어떻게 처리되나요?",
+      "true": "buyer_payment",
+      "predicted": "buyer_cancel_refund",
+      "difficulty": "easy",
+      "confidence": 0.3403
+    },
+    {
+      "text": "구매자가 결제를 취소하네 마네 하더니 결국 구매 확정됐다고 들었어요. 그럼 이제 제 대금은 언제 들어오는지 날짜만 확실히 알려주세요.",
+      "true": "seller_settlement",
+      "predicted": "seller_inspection_fail",
+      "difficulty": "hard",
+      "confidence": 0.2782
+    },
+    {
+      "text": "검수 합격했다고 알림은 왔는데 며칠째 안 오네요. 페널티 물더라도 취소하고 싶어지는데 현재 택배 위치 정확히 확인 부탁드립니다.",
+      "true": "buyer_delivery",
+      "predicted": "seller_penalty",
+      "difficulty": "hard",
+      "confidence": 0.3492
+    },
+    {
+      "text": "어제 통장으로 입금했는데 그냥 안살래요. 돈 돌려받는 계좌 따로 적어야하나요?",
+      "true": "buyer_cancel_refund",
+      "predicted": "buyer_payment",
+      "difficulty": "medium",
+      "confidence": 0.2134
+    },
+    {
+      "text": "제가 판 가격이랑 통장에 찍힌 금액이랑 차이가 너무 나는데요? 계산 다시해보세요",
+      "true": "seller_settlement",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.2212
+    },
+    {
+      "text": "결제하려고 하니까 시스템 점검중이라고 뜹니다 ㅠㅠ 언제 풀려요?",
+      "true": "buyer_payment",
+      "predicted": "seller_settlement",
+      "difficulty": "easy",
+      "confidence": 0.2661
+    },
+    {
+      "text": "옷 사이즈가 너무 작아서요... 이거 물리고 돈으로 다시 받을 수 있져?",
+      "true": "buyer_cancel_refund",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.2219
+    },
+    {
+      "text": "탈락한 제 패딩 언제쯤 반송되나요? 빨리 돌려받고 싶습니다.",
+      "true": "seller_inspection_fail",
+      "predicted": "buyer_delivery",
+      "difficulty": "easy",
+      "confidence": 0.2708
+    },
+    {
+      "text": "정산 대금에서 벌금 명목으로 돈을 떼갔던데, 제가 늦게 보낸 건 맞지만 사전 경고도 없이 갑자기 계정을 막아버리고 돈까지 뺏어가는게 어딨습니까. 정지 해제해주세요.",
+      "true": "seller_penalty",
+      "predicted": "seller_settlement",
+      "difficulty": "hard",
+      "confidence": 0.416
+    },
+    {
+      "text": "어제 구매확정 떴는데 제 돈은 정확히 몇일에 들어오는지 알려주세요.",
+      "true": "seller_settlement",
+      "predicted": "buyer_delivery",
+      "difficulty": "easy",
+      "confidence": 0.436
+    },
+    {
+      "text": "빨리 돈 받아야 카드값을 내는데 도대체 언제 쏴주는겁니까...",
+      "true": "seller_settlement",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.437
+    },
+    {
+      "text": "금요일에 완료됐는데 주말 껴있어서 아직도 안들어온건가요?",
+      "true": "seller_settlement",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.2465
+    },
+    {
+      "text": "불합격은 제 실수니까 넘어가겠는데, 앞으로 한달간 거래 불가라는건 진짜 선 넘었죠. 저번에도 억울하게 점수 깎였는데 이번에 또 이런 불이익을 주나요?",
+      "true": "seller_penalty",
+      "predicted": "seller_inspection_fail",
+      "difficulty": "hard",
+      "confidence": 0.2523
+    },
+    {
+      "text": "내 물건 가짜 취급한 것도 열받는데 앞으로 3달동안 여기서 물건도 못팔게 막는다고요? 당장 풀어주세요.",
+      "true": "seller_penalty",
+      "predicted": "buyer_cancel_refund",
+      "difficulty": "medium",
+      "confidence": 0.2493
+    },
+    {
+      "text": "선물용으로 샀는데 친구가 이미 있다고 해서요. 박스 안뜯었는데 돌려보낼게요.",
+      "true": "buyer_cancel_refund",
+      "predicted": "seller_inspection_fail",
+      "difficulty": "medium",
+      "confidence": 0.4576
+    },
+    {
+      "text": "정지먹어서 판매를 못하고 있는데 영구정지인가요 풀 수 있는 방법 없어요?",
+      "true": "seller_penalty",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.2757
+    },
+    {
+      "text": "페널티 깎이고 남은 돈 언제 들어오냐고 몇번을 묻습니까. 취소나 반품 건수 많아지면 정산 늦어지는건 알겠는데 이건 벌써 2주가 지났잖아요. 내 돈 내놔요.",
+      "true": "seller_settlement",
+      "predicted": "seller_penalty",
+      "difficulty": "hard",
+      "confidence": 0.4308
+    },
+    {
+      "text": "돌려보내실 때 착불인가요 아님 그쪽에서 내주나요?",
+      "true": "seller_inspection_fail",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.1912
+    },
+    {
+      "text": "내가 보낼땐 멀쩡했는데 사진보니까 누가 칼로 그은거 마냥 상처가 있네요. 검수하다가 망가뜨린거 아님?",
+      "true": "seller_inspection_fail",
+      "predicted": "buyer_cancel_refund",
+      "difficulty": "medium",
+      "confidence": 0.2974
+    },
+    {
+      "text": "배송비 포함해서 50만원 결제했는데, 나중에 보니까 제가 쓰려던 만원 쿠폰이 날아가있어요. 배송 늦는건 참아도 돈 더낸건 못참으니까 당장 재결제 열어주세요.",
+      "true": "buyer_payment",
+      "predicted": "buyer_delivery",
+      "difficulty": "hard",
+      "confidence": 0.4846
+    },
+    {
+      "text": "안에 들어있어야 할 보증서 쪼가리가 없는데 왜 통과된건가요",
+      "true": "buyer_inspection_result",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.4201
+    },
+    {
+      "text": "불합격돼서 페널티 요금 물어내는건 백번 양보해서 알겠는데, 내 물건 돌려받으려면 반송비까지 내가 내야돼요? 어이가 없네 왜 떨어졌는지 납득이라도 시켜보든가요.",
+      "true": "seller_inspection_fail",
+      "predicted": "seller_penalty",
+      "difficulty": "hard",
+      "confidence": 0.9548
+    },
+    {
+      "text": "배송은 어제 빨리와서 좋았는데, 자세히 보니까 마감이 불량입니다. 이런 것도 기준상 무조건 통과되는 건가요? 취소하고 싶게 만드네요.",
+      "true": "buyer_inspection_result",
+      "predicted": "buyer_delivery",
+      "difficulty": "hard",
+      "confidence": 0.4039
+    },
+    {
+      "text": "돈 빼갔으면서 왜 아직도 미결제 상태인가요 빨리 처리좀",
+      "true": "buyer_payment",
+      "predicted": "buyer_delivery",
+      "difficulty": "medium",
+      "confidence": 0.2465
+    },
+    {
+      "text": "주소지 잘못 적어서 수정하려고 하는데 어디서 하나요?",
+      "true": "buyer_delivery",
+      "predicted": "buyer_cancel_refund",
+      "difficulty": "easy",
+      "confidence": 0.2248
+    },
+    {
+      "text": "정품이라고 해서 비싼 돈 주고 카드 무이자 할부로 긁었는데, 막상 받아보니 짭 냄새가 진동을 하네요. 환불받기 전에 정품인증서 내놓으세요.",
+      "true": "buyer_inspection_result",
+      "predicted": "buyer_payment",
+      "difficulty": "hard",
+      "confidence": 0.2829
+    },
+    {
+      "text": "입금받을 계좌를 카카오뱅크에서 토스뱅크로 바꾸려고 합니다.",
+      "true": "seller_settlement",
+      "predicted": "buyer_delivery",
+      "difficulty": "easy",
+      "confidence": 0.3747
+    },
+    {
+      "text": "A등급이라고 해서 구매했는데 이정도 얼룩이면 B등급 아닌가요?",
+      "true": "buyer_inspection_result",
+      "predicted": "buyer_delivery",
+      "difficulty": "easy",
+      "confidence": 0.2643
+    },
+    {
+      "text": "벌점 10점 넘으면 어떻게 되는지 설명좀 부탁드립니다.",
+      "true": "seller_penalty",
+      "predicted": "seller_inspection_fail",
+      "difficulty": "medium",
+      "confidence": 0.2413
+    },
+    {
+      "text": "물건 검수 통과해서 구매자가 잘 받았다는 리뷰까지 썼던데, 왜 제 판매 대금은 아직도 묶여있고 수수료만 쏙 빼가나요? 당장 입금일자 픽스해주세요.",
+      "true": "seller_settlement",
+      "predicted": "buyer_inspection_result",
+      "difficulty": "hard",
+      "confidence": 0.3903
+    },
+    {
+      "text": "검수 통과했다고 연락받고 결제창에서 카드결제까지 다 마쳤는데 일주일째 택배가 안옵니다. 도대체 중간에 어디서 멈춘건가요?",
+      "true": "buyer_delivery",
+      "predicted": "buyer_inspection_result",
+      "difficulty": "hard",
+      "confidence": 0.5514
+    },
+    {
+      "text": "배송비까지 다 내고 결제 끝났는데 아직도 배송시작 안했으면 환불해줘야 되는거 아닌가요? 언제 보내줄건지 당장 말해주세요.",
+      "true": "buyer_delivery",
+      "predicted": "buyer_payment",
+      "difficulty": "hard",
+      "confidence": 0.7848
+    },
+    {
+      "text": "박스 모서리 다 구겨져서 왔는데 이거 통과시킨 담당자 누구죠?",
+      "true": "buyer_inspection_result",
+      "predicted": "seller_inspection_fail",
+      "difficulty": "medium",
+      "confidence": 0.307
+    },
+    {
+      "text": "결제 오류나서 두번 결제된거 하나는 배송 오고 하나는 안오길래 하나만 무르려고 하는데, 포인트 돌려주는건 언제 되는건가요?",
+      "true": "buyer_cancel_refund",
+      "predicted": "buyer_payment",
+      "difficulty": "hard",
+      "confidence": 0.5777
+    },
+    {
+      "text": "할인 30%짜리 먹이려고 하는데 자꾸 안된다고 나오네요 조건이 안맞나요?",
+      "true": "buyer_payment",
+      "predicted": "seller_settlement",
+      "difficulty": "medium",
+      "confidence": 0.2401
+    },
+    {
+      "text": "결제창에서 5개월로 바꿨는데 일시불로 긁혔어요 ㅡㅡ 다시 긁어주세요",
+      "true": "buyer_payment",
+      "predicted": "seller_inspection_fail",
+      "difficulty": "medium",
+      "confidence": 0.4297
+    }
+  ],
+  "version": "v1",
+  "description": "처음 버전: 띄어쓰기로 나뉜 단어 단위 TF-IDF + 로지스틱 회귀",
+  "evaluated_at": "2026-11-02T12:19:17",
+  "train_size": 300,
+  "eval_file": "eval.csv"
+}
