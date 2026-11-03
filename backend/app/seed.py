@@ -17,7 +17,7 @@ from app.classifier import Classifier
 from app.config import SEED_DIR, load_settings
 from app.drafting import OpenAIDrafter
 from app.inquiries import backfill_drafts, create_inquiry
-from app.policy import PolicyBook
+from app.policy import make_policy
 from app.security import hash_password
 
 # 연습용 계정입니다. 실제로 쓰는 비밀번호를 여기에 적지 마세요.
@@ -103,7 +103,7 @@ def seed_inquiries(conn, classifier, policy, drafter, path=INQUIRY_FILE):
 if __name__ == "__main__":
     settings = load_settings()
     classifier = Classifier()
-    policy = PolicyBook()
+    policy = make_policy(settings)
     drafter = OpenAIDrafter(settings.openai_api_key, settings.openai_model)
     with psycopg.connect(settings.database_url, row_factory=dict_row, prepare_threshold=None) as conn:
         if "--reset" in sys.argv[1:]:

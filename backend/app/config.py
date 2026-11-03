@@ -19,6 +19,7 @@ class Settings:
     frontend_origin: str
     openai_api_key: str = ""
     openai_model: str = ""
+    openai_embedding_model: str = ""
 
 
 def load_settings():
@@ -31,4 +32,5 @@ def load_settings():
         frontend_origin=os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173"),
         openai_api_key=os.environ.get("OPENAI_API_KEY", ""),
         openai_model=os.environ.get("OPENAI_MODEL", ""),
+        openai_embedding_model=os.environ.get("OPENAI_EMBEDDING_MODEL", ""),
     )

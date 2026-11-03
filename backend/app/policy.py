@@ -5,6 +5,7 @@
 - `- 응대 주의:` 줄은 초안을 쓸 때만 쓰는 내부 지침이다. 고객 화면의 규정 문서 원문에는 넣지 않는다.
 - `- 이런 문의에 쓰임:` 줄은 고객이 실제로 쓰는 말투의 예시 문장이다. 규정 문서를 찾을 때만 쓰고 원문·초안 재료에는 넣지 않는다.
 """
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,6 +14,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 from app.config import PROJECT_DIR
+
+logger = logging.getLogger(__name__)
 
 POLICY_PATH = PROJECT_DIR / "backend" / "policies" / "policy_clauses.md"
 
@@ -33,6 +36,10 @@ MAX_EVIDENCE = 3
 # 놓쳤다), 후보 조항 중 실제로 쓸 것과 "규정 문서에는 없음"의 판단은 모델(drafting.py의 cited, uncovered)에게
 # 맡기고, 돌려받은 번호는 프로그램이 다시 확인한다.
 MIN_SIMILARITY = 0.06
+# 임베딩(뜻 비교)으로 찾을 때의 최소 유사도. 임베딩 점수는 TF-IDF보다 전체적으로 높다. 정답 조항의 점수는 0.24~0.7
+# 이었고(하위 5%가 0.29), 엉뚱한 문장("오늘 점심 뭐 먹지" 등)은 0.23 이하였다. 같은 이유로 확실히 상관없는 것만
+# 거르는 낮은 값으로 둔다.
+EMBEDDING_MIN_SIMILARITY = 0.24
 
 CAUTION_PREFIX = "- 응대 주의:"
 EXAMPLE_PREFIX = "- 이런 문의에 쓰임:"
@@ -145,7 +152,7 @@ def parse_policy(text):
 class PolicyBook:
     """규정 문서 모음. 조항 찾기와 번호 확인을 맡는다."""
 
-    def __init__(self, text=None, path=POLICY_PATH):
+    def __init__(self, text=None, path=POLICY_PATH, embedder=None):
         if text is None:
             text = Path(path).read_text(encoding="utf-8")
         self.clauses, self._intents = parse_policy(text)
@@ -157,6 +164,18 @@ class PolicyBook:
         self._vectorizer = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 3), sublinear_tf=True)
         self._matrix = self._vectorizer.fit_transform([c.search_text for c in self.clauses])
         self._index = {c.id: n for n, c in enumerate(self.clauses)}
+
+        # 임베딩 방식: 조항의 뜻 벡터를 미리 만들어 둔다. 만들지 못하면(키 없음, 서버 오류) TF-IDF만 쓴다.
+        self._embedder, self._vectors = embedder, None
+        if embedder is not None:
+            try:
+                self._vectors = embedder.embed([c.search_text for c in self.clauses])
+            except Exception:
+                logger.exception("조항 임베딩을 만들지 못해 TF-IDF로만 규정 문서를 찾습니다")
+
+    @property
+    def uses_embedding(self):
+        return self._vectors is not None
 
     def __len__(self):
         return len(self.clauses)
@@ -172,20 +191,50 @@ class PolicyBook:
         intent = LABEL_TO_INTENT.get(label)
         return [self._by_id[i] for i in self._intents.get(intent, [])]
 
+    def _scored(self, label, text):
+        """(후보 조항, 유사도) 목록(높은 순)과 어떤 방식으로 점수를 냈는지('embedding' 또는 'tfidf')."""
+        candidates = self.clauses if label is None else self.candidates(label)
+        if not candidates or not text.strip():
+            return [], "tfidf"
+        rows = [self._index[c.id] for c in candidates]
+        if self._vectors is not None:
+            try:
+                sims = self._vectors[rows] @ self._embedder.embed_query(text)
+                return sorted(zip(candidates, (float(s) for s in sims)), key=lambda p: -p[1]), "embedding"
+            except Exception:
+                logger.exception("문의 임베딩에 실패해 이번에는 TF-IDF로 규정 문서를 찾습니다")
+        query = self._vectorizer.transform([text])
+        sims = cosine_similarity(query, self._matrix[rows])[0]
+        return sorted(zip(candidates, (float(s) for s in sims)), key=lambda p: -p[1]), "tfidf"
+
     def scores(self, label, text):
         """후보 조항마다 문의와의 내용 유사도 (높은 순).
 
-        label이 None이면 분류를 믿을 수 없는 문의이므로 정책 전체를 후보로 삼는다.
+        label이 None이면 분류를 믿을 수 없는 문의이므로 규정 문서 전체를 후보로 삼는다.
+        임베딩을 쓸 수 있으면 뜻으로, 아니면 글자 조각(TF-IDF)으로 점수를 낸다.
         """
-        candidates = self.clauses if label is None else self.candidates(label)
-        if not candidates or not text.strip():
-            return []
-        query = self._vectorizer.transform([text])
-        rows = [self._index[c.id] for c in candidates]
-        sims = cosine_similarity(query, self._matrix[rows])[0]
-        return sorted(zip(candidates, (float(s) for s in sims)), key=lambda p: -p[1])
+        return self._scored(label, text)[0]
 
     def find_evidence(self, label, text, limit=MAX_EVIDENCE, min_score=None):
         """근거로 인정할 조항을 (조항, 유사도) 목록으로 돌려준다. 없으면 빈 목록."""
-        threshold = MIN_SIMILARITY if min_score is None else min_score
-        return [(c, s) for c, s in self.scores(label, text) if s >= threshold][:limit]
+        scored, method = self._scored(label, text)
+        default = EMBEDDING_MIN_SIMILARITY if method == "embedding" else MIN_SIMILARITY
+        threshold = default if min_score is None else min_score
+        return [(c, s) for c, s in scored if s >= threshold][:limit]
+
+
+def make_policy(settings):
+    """규정 문서를 읽는다. OpenAI 키가 있으면 뜻으로 찾기(임베딩)도 켠다. 조항 벡터는 policies 폴더에 저장해 둔다."""
+    if not settings.openai_api_key:
+        return PolicyBook()
+    from openai import OpenAI
+
+    from app.embedding import EMBED_MODEL, Embedder
+
+    client = OpenAI(api_key=settings.openai_api_key, timeout=30, max_retries=1)
+    embedder = Embedder(
+        client,
+        settings.openai_embedding_model or EMBED_MODEL,
+        POLICY_PATH.with_name("embedding_cache.json"),
+    )
+    return PolicyBook(embedder=embedder)

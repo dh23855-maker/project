@@ -137,3 +137,95 @@ class EvidenceTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakeEmbedder:
+    """뜻 비교를 흉내 낸다: 글에 나온 낱말(단서)의 개수를 세어 벡터로 만든다 (OpenAI를 부르지 않는다)."""
+
+    CUES = ["환불", "쿠폰", "배송", "정산", "페널티", "박스", "카드", "소명"]
+
+    def __init__(self, fail_documents=False, fail_queries=False):
+        self.fail_documents, self.fail_queries = fail_documents, fail_queries
+        self.document_calls = self.query_calls = 0
+
+    def _vector(self, text):
+        import numpy as np
+
+        v = np.array([text.count(c) for c in self.CUES], dtype=float)
+        norm = np.linalg.norm(v)
+        return v / norm if norm else v  # 단서가 하나도 없으면 영벡터(아무 조항과도 비슷하지 않음)
+
+    def embed(self, texts):
+        import numpy as np
+
+        self.document_calls += 1
+        if self.fail_documents:
+            raise RuntimeError("조항 임베딩 실패")
+        return np.array([self._vector(t) for t in texts])
+
+    def embed_query(self, text):
+        self.query_calls += 1
+        if self.fail_queries:
+            raise RuntimeError("문의 임베딩 실패")
+        return self._vector(text)
+
+
+class EmbeddingSearchTest(unittest.TestCase):
+    def test_default_book_uses_tfidf_only(self):
+        self.assertFalse(PolicyBook().uses_embedding)
+
+    def test_embedding_ranks_by_meaning_and_uses_its_own_bar(self):
+        embedder = FakeEmbedder()
+        book = PolicyBook(embedder=embedder)
+        self.assertTrue(book.uses_embedding)
+        # "소명"이라는 낱말만 있는 문의: 글자 조각이 아니라 벡터(낱말 단서)로 가장 가까운 조항이 1등
+        ranked = book.scores("seller_penalty", "소명 소명 소명")
+        top = ranked[0][0]
+        self.assertGreater(top.search_text.count("소명"), 0)
+        self.assertEqual(ranked, sorted(ranked, key=lambda p: -p[1]))
+        # 임베딩 점수에는 임베딩용 기준(0.24)이 적용된다: 아무 단서도 없는 문의는 점수가 낮아 걸러진다
+        self.assertEqual(book.find_evidence("seller_penalty", "ㅁㄴㅇㄹ"), [])
+        self.assertTrue(book.find_evidence("seller_penalty", "소명 소명 소명"))
+
+    def test_each_method_uses_its_own_bar(self):
+        from unittest import mock
+
+        import app.policy as policy_module
+
+        book = PolicyBook(embedder=FakeEmbedder())
+        self.assertTrue(book.find_evidence("seller_penalty", "소명 소명 소명"))
+        with mock.patch.object(policy_module, "EMBEDDING_MIN_SIMILARITY", 1.5):
+            self.assertEqual(book.find_evidence("seller_penalty", "소명 소명 소명"), [])
+        # TF-IDF 기준(MIN_SIMILARITY)은 임베딩으로 찾을 때 영향을 주지 않는다
+        with mock.patch.object(policy_module, "MIN_SIMILARITY", 1.5):
+            self.assertTrue(book.find_evidence("seller_penalty", "소명 소명 소명"))
+            self.assertEqual(PolicyBook().find_evidence("buyer_cancel_refund", COUPON_TEXT), [])
+
+    def test_embedding_search_stays_inside_the_label_and_can_search_everything(self):
+        book = PolicyBook(embedder=FakeEmbedder())
+        inside = {c.id for c, _ in book.scores("seller_settlement", "쿠폰 환불")}
+        self.assertEqual(inside, {c.id for c in book.candidates("seller_settlement")})
+        everything = {c.id for c, _ in book.scores(None, "쿠폰 환불")}
+        self.assertEqual(everything, {c.id for c in book.clauses})
+
+    def test_falls_back_to_tfidf_when_clause_embedding_fails(self):
+        embedder = FakeEmbedder(fail_documents=True)
+        with self.assertLogs("app.policy", level="ERROR"):
+            book = PolicyBook(embedder=embedder)
+        self.assertFalse(book.uses_embedding)
+        self.assertEqual(book.find_evidence("buyer_cancel_refund", COUPON_TEXT)[0][0].id, "RFD-04")
+        self.assertEqual(embedder.query_calls, 0)
+
+    def test_falls_back_to_tfidf_for_one_search_when_query_embedding_fails(self):
+        book = PolicyBook(embedder=FakeEmbedder(fail_queries=True))
+        self.assertTrue(book.uses_embedding)
+        with self.assertLogs("app.policy", level="ERROR"):
+            found = book.find_evidence("buyer_cancel_refund", COUPON_TEXT)
+        self.assertEqual(found[0][0].id, "RFD-04")
+        self.assertEqual(found, PolicyBook().find_evidence("buyer_cancel_refund", COUPON_TEXT))
+
+    def test_blank_text_never_calls_the_embedder(self):
+        embedder = FakeEmbedder()
+        book = PolicyBook(embedder=embedder)
+        self.assertEqual(book.scores("buyer_delivery", "   "), [])
+        self.assertEqual(embedder.query_calls, 0)

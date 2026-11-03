@@ -54,6 +54,14 @@ DB 시험은 `test_`로 시작하는 임시 영역에 표를 새로 만들어 �
 
 화면의 "성능 평가" 메뉴에서 [평가 실행]을 누르면 같은 평가를 서버가 돌리고 결과를 DB(`eval_runs`)에 실행마다 저장합니다. 평가용 문의는 문의 목록에 들어가지 않습니다.
 
+## 규정 문서 찾기
+
+문의가 들어오면 분류된 종류의 후보 조항 안에서 문의와 뜻이 가장 가까운 조항 3개를 찾아 초안 재료로 씁니다 (임베딩 `text-embedding-3-large`). 같은 정답 표로 TF-IDF·임베딩·섞기를 비교해 골랐고 결과는 `ml/results/retrieval_compare_*.json`에 있습니다 (`.venv\Scripts\python.exe -m ml.retrieval_compare [모델]`로 다시 잴 수 있고, 약간의 OpenAI 비용이 듭니다).
+
+- 조항 벡터는 처음 한 번 만들어 `policies/embedding_cache.json`에 저장합니다 (Git에는 올리지 않고, 규정 문서를 고치면 바뀐 조항만 다시 만듭니다).
+- 임베딩이 안 될 때(키 없음, 서버 오류)는 그 순간만 글자 조각(TF-IDF)으로 찾습니다.
+- 모델은 `.env`의 `OPENAI_EMBEDDING_MODEL`로 바꿀 수 있습니다 (비우면 `text-embedding-3-large`).
+
 ## 분류 모델
 
 글자 조각(2~3글자) TF-IDF + 로지스틱 회귀입니다. 학습용 문의만 쓴 교차 검증으로 단어 방식(74%)보다 글자 조각 방식(88%)이 낫다고 보고 골랐습니다. 상세는 `ml/train.py` 머리말을 보세요.

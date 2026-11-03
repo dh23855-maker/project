@@ -16,3 +16,7 @@ __pycache__/
 
 # Trained model files (can be rebuilt with the training script)
 backend/ml/models/
+backend/ml/results/embedding_cache.json
+
+# 규정 문서 조항 임베딩 저장 파일 (다시 만들 수 있음)
+backend/policies/embedding_cache.json

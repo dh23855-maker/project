@@ -27,6 +27,7 @@
 | 서버 | Python, FastAPI, psycopg(PostgreSQL), bcrypt, 세션 로그인 |
 | 분류 모델 | scikit-learn (TF-IDF + 로지스틱 회귀) |
 | 초안 | OpenAI API (`gpt-6-luna`), 규정 문서 근거 + 번호 검증 |
+| 규정 문서 찾기 | OpenAI 임베딩(`text-embedding-3-large`, 뜻 비교). 같은 정답 표로 TF-IDF·섞기와 비교해 골랐고 실패하면 TF-IDF로 대신함 |
 | DB | Supabase PostgreSQL (모든 표에 접근 제한 RLS) |
 
 ## 폴더

@@ -15,7 +15,7 @@ from app.classifier import Classifier
 from app.config import load_settings
 from app.db import make_pool
 from app.drafting import OpenAIDrafter
-from app.policy import PolicyBook
+from app.policy import make_policy
 from app.routers import auth, evaluations, inquiries, logs, settings as settings_router
 from app.workflow import WorkflowError
 from ml.data import EVAL_PATH
@@ -24,7 +24,7 @@ from ml.data import EVAL_PATH
 def create_app(schema=None, classifier=None, policy=None, drafter=None, eval_path=None):
     """schema, classifier, policy, drafter, eval_path는 시험에서만 쓴다. 평소에는 비워 둔다."""
     settings = load_settings()
-    policy = policy or PolicyBook()
+    policy = policy or make_policy(settings)
     drafter = drafter or OpenAIDrafter(settings.openai_api_key, settings.openai_model)
 
     @asynccontextmanager
