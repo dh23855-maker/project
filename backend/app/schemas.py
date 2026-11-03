@@ -175,3 +175,26 @@ class EvaluationDetail(EvaluationSummary):
     eval_file: str | None
     labels: list[LabelName]
     difficulties: list[str]
+
+
+class StatsType(BaseModel):
+    code: str
+    name: str
+    who: str  # 구매자 / 판매자 (분류 없음은 빈 글자)
+    count: int
+    percent: float
+
+
+class StatsDay(BaseModel):
+    date: str  # 2026-11-03
+    total: int
+    counts: dict[str, int]  # 종류 코드 -> 건수 (모든 종류, 없으면 0)
+
+
+class InquiryStatsOut(BaseModel):
+    days: int
+    start: str
+    end: str
+    total: int
+    types: list[StatsType]
+    daily: list[StatsDay]

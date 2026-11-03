@@ -17,9 +17,15 @@ const time = (item) => new Date(item.created_at).getTime() || 0
 // 같은 시각이면 번호가 큰(나중에 들어온) 문의를 새것으로 본다
 export const newestFirst = (a, b) => time(b) - time(a) || b.id - a.id
 
-export function filterInquiries(items, filter) {
+export const SORT_OPTIONS = [
+  { value: 'newest', label: '최신순' },
+  { value: 'oldest', label: '오래된순' },
+]
+export const DEFAULT_SORT = 'newest'
+
+export function filterInquiries(items, filter, sort = DEFAULT_SORT) {
   const list = filter === 'all' ? [...items] : items.filter((item) => item.status === filter)
-  return list.sort(newestFirst)
+  return list.sort(sort === 'oldest' ? (a, b) => -newestFirst(a, b) : newestFirst)
 }
 
 export function countByStatus(items) {
@@ -49,13 +55,13 @@ export function StatusTabs({ items, filter, onChange }) {
   )
 }
 
-// 받은 문의: 문의 목록(최신순). 상태, 분류 결과, 확신도를 한눈에 볼 수 있다.
-export default function InquiryList({ items, selectedId, onSelect, state, filter = DEFAULT_FILTER }) {
+// 받은 문의: 문의 목록(상태 탭으로 거르고 최신순 또는 오래된순). 상태, 분류 결과, 확신도를 한눈에 볼 수 있다.
+export default function InquiryList({ items, selectedId, onSelect, state, filter = DEFAULT_FILTER, sort = DEFAULT_SORT }) {
   if (state === 'loading') return <p className="muted pad">문의를 불러오는 중...</p>
   if (state === 'error') return <p className="field-error pad">문의 목록을 불러오지 못했습니다.</p>
   if (items.length === 0) return <p className="muted pad">문의가 없습니다.</p>
 
-  const shown = filterInquiries(items, filter)
+  const shown = filterInquiries(items, filter, sort)
   if (shown.length === 0) return <p className="muted pad">이 상태의 문의가 없습니다.</p>
 
   return (

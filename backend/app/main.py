@@ -16,7 +16,7 @@ from app.config import load_settings
 from app.db import make_pool
 from app.drafting import OpenAIDrafter
 from app.policy import make_policy
-from app.routers import auth, evaluations, inquiries, logs, settings as settings_router
+from app.routers import auth, evaluations, inquiries, logs, settings as settings_router, stats as stats_router
 from app.workflow import WorkflowError
 from ml.data import EVAL_PATH
 
@@ -72,4 +72,5 @@ def create_app(schema=None, classifier=None, policy=None, drafter=None, eval_pat
     app.include_router(settings_router.router)
     app.include_router(logs.router)
     app.include_router(evaluations.router)
+    app.include_router(stats_router.router)
     return app

@@ -95,4 +95,5 @@ export const api = {
   listEvaluations: () => request('GET', '/api/evaluations'),
   getEvaluation: (id) => request('GET', `/api/evaluations/${id}`),
   runEvaluation: () => request('POST', '/api/evaluations'),
+  getInquiryStats: (days) => request('GET', '/api/stats/inquiries?days=' + days),
 }

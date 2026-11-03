@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../api.js'
 import InquiryDetail from '../components/InquiryDetail.jsx'
-import InquiryList, { DEFAULT_FILTER, StatusTabs } from '../components/InquiryList.jsx'
+import InquiryList, { DEFAULT_FILTER, DEFAULT_SORT, SORT_OPTIONS, StatusTabs } from '../components/InquiryList.jsx'
 import NewInquiryForm from '../components/NewInquiryForm.jsx'
 
 const SIDE_KEY = 'consult-side-width'
@@ -38,6 +38,7 @@ export default function ConsultPage() {
   const [notice, setNotice] = useState(null) // { kind: 'error' | 'success', text }
   const [busyText, setBusyText] = useState(null)
   const [filter, setFilter] = useState(DEFAULT_FILTER)
+  const [sort, setSort] = useState(DEFAULT_SORT)
   const [sideWidth, setSideWidth] = useState(loadSideWidth)
   const shownId = useRef(null) // 지금 화면에 이미 받아 둔 문의의 번호
 
@@ -176,10 +177,22 @@ export default function ConsultPage() {
         <div className="side-head">
           <h2>받은 문의</h2>
           <span className="muted">{items.length}건</span>
+          <select
+            className="side-sort-select"
+            aria-label="정렬"
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
         <StatusTabs items={items} filter={filter} onChange={setFilter} />
         <div className="side-list">
-          <InquiryList items={items} selectedId={selectedId} onSelect={select} state={listState} filter={filter} />
+          <InquiryList items={items} selectedId={selectedId} onSelect={select} state={listState} filter={filter} sort={sort} />
         </div>
         <NewInquiryForm onCreated={created} disabled={Boolean(busyText)} />
       </aside>

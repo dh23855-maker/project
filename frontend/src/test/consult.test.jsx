@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -465,6 +465,65 @@ describe('상담 화면: 새 문의 입력', () => {
     expect(await screen.findByText('문의 내용을 입력하세요.')).toBeInTheDocument()
     expect(server.called('POST', '/api/inquiries')).toHaveLength(0)
   })
+
+  describe('엔터키', () => {
+    const setup = () => {
+      const list = [toListItem(makeDetail())]
+      const server = mockServer({
+        'GET /api/auth/me': { id: 1, username: 'kim', display_name: '김상담' },
+        'GET /api/inquiries': () => list,
+        'GET /api/inquiries/1': makeDetail(),
+        'POST /api/inquiries': () => {
+          list.unshift(toListItem(created))
+          return jsonResponse(201, created)
+        },
+      })
+      return server
+    }
+
+    it('엔터를 누르면 등록된다', async () => {
+      const server = setup()
+      renderApp()
+      await screen.findByRole('heading', { name: '문의 #1' })
+      await userEvent.type(screen.getByLabelText('새 문의 입력'), '새로 입력한 문의입니다.{Enter}')
+      expect(await screen.findByRole('heading', { name: '문의 #7' })).toBeInTheDocument()
+      expect(server.called('POST', '/api/inquiries')[0].body).toEqual({ body: '새로 입력한 문의입니다.' })
+      expect(screen.getByLabelText('새 문의 입력')).toHaveValue('')
+    })
+
+    it('Shift+엔터는 줄바꿈이고 등록되지 않는다', async () => {
+      const server = setup()
+      renderApp()
+      await screen.findByRole('heading', { name: '문의 #1' })
+      const box = screen.getByLabelText('새 문의 입력')
+      await userEvent.type(box, '첫 줄{Shift>}{Enter}{/Shift}둘째 줄')
+      expect(box).toHaveValue('첫 줄\n둘째 줄')
+      expect(server.called('POST', '/api/inquiries')).toHaveLength(0)
+      await userEvent.type(box, '{Enter}')
+      expect((await screen.findByRole('heading', { name: '문의 #7' }))).toBeInTheDocument()
+      expect(server.called('POST', '/api/inquiries')[0].body).toEqual({ body: '첫 줄\n둘째 줄' })
+    })
+
+    it('한글을 입력하는 중(글자 조합 중)에 누른 엔터는 등록하지 않는다', async () => {
+      const server = setup()
+      renderApp()
+      await screen.findByRole('heading', { name: '문의 #1' })
+      const box = screen.getByLabelText('새 문의 입력')
+      await userEvent.type(box, '안녕')
+      fireEvent.keyDown(box, { key: 'Enter', isComposing: true })
+      expect(server.called('POST', '/api/inquiries')).toHaveLength(0)
+      expect(box).toHaveValue('안녕')
+    })
+
+    it('내용이 비어 있는 채 엔터를 누르면 안내만 한다', async () => {
+      const server = setup()
+      renderApp()
+      await screen.findByRole('heading', { name: '문의 #1' })
+      await userEvent.type(screen.getByLabelText('새 문의 입력'), '{Enter}')
+      expect(await screen.findByText('문의 내용을 입력하세요.')).toBeInTheDocument()
+      expect(server.called('POST', '/api/inquiries')).toHaveLength(0)
+    })
+  })
 })
 
 describe('받은 문의: 상태별 보기', () => {
@@ -504,7 +563,7 @@ describe('받은 문의: 상태별 보기', () => {
     expect(tab('전체')).toHaveAttribute('aria-selected', 'true')
     const names = screen.getAllByRole('tab').map((t) => t.textContent.replace(/\s+/g, ' '))
     expect(names).toEqual(['전체 5', '승인 대기 2', '직접 작성 1', '처리 완료 2'])
-    expect(screen.queryByLabelText('정렬')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('정렬')).toHaveValue('newest')
   })
 
   it('상태 탭을 누르면 그 상태의 문의만 최신순으로 보인다', async () => {
@@ -542,6 +601,70 @@ describe('받은 문의: 상태별 보기', () => {
     await userEvent.click(tab('처리 완료'))
     expect(screen.getByRole('heading', { name: '문의 #4' })).toBeInTheDocument()
     await userEvent.click(tab('승인 대기'))
+    const selected = within(screen.getByRole('list', { name: '문의 목록' })).getByText('대기 중 나중에 온 문의')
+    expect(selected.closest('button')).toHaveAttribute('aria-current', 'true')
+  })
+})
+
+describe('받은 문의: 정렬', () => {
+  const item = (id, status, createdAt, body) =>
+    toListItem(makeDetail({ id, status, status_ko: status, created_at: createdAt, body }))
+  const mixed = [
+    item(5, 'done', '2026-11-02T13:00:00+09:00', '완료된 최신 문의'),
+    item(4, 'awaiting_approval', '2026-11-02T12:00:00+09:00', '대기 중 나중에 온 문의'),
+    item(3, 'manual', '2026-11-02T11:00:00+09:00', '직접 작성할 문의'),
+    item(2, 'awaiting_approval', '2026-11-02T10:00:00+09:00', '대기 중 먼저 온 문의'),
+    item(1, 'done', '2026-11-02T09:00:00+09:00', '완료된 오래된 문의'),
+  ]
+  const setup = () =>
+    mockServer({
+      'GET /api/auth/me': { id: 1, username: 'kim', display_name: '김상담' },
+      'GET /api/inquiries': mixed,
+      'GET /api/inquiries/4': makeDetail({ id: 4 }),
+    })
+  const order = () =>
+    within(screen.getByRole('list', { name: '문의 목록' }))
+      .getAllByRole('button')
+      .map((b) => b.querySelector('.inquiry-text').textContent)
+
+  it('처음에는 최신순이고, 정렬 선택으로 오래된순을 고를 수 있다', async () => {
+    setup()
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #4' })
+    expect(screen.getByLabelText('정렬')).toHaveValue('newest')
+    expect(order()[0]).toBe('완료된 최신 문의')
+
+    await userEvent.selectOptions(screen.getByLabelText('정렬'), 'oldest')
+    expect(order()).toEqual([
+      '완료된 오래된 문의',
+      '대기 중 먼저 온 문의',
+      '직접 작성할 문의',
+      '대기 중 나중에 온 문의',
+      '완료된 최신 문의',
+    ])
+  })
+
+  it('상태 탭과 함께 쓸 수 있다: 탭으로 거른 문의를 오래된순으로 본다', async () => {
+    setup()
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #4' })
+    await userEvent.click(screen.getByRole('tab', { name: /^승인 대기/ }))
+    expect(order()).toEqual(['대기 중 나중에 온 문의', '대기 중 먼저 온 문의'])
+    await userEvent.selectOptions(screen.getByLabelText('정렬'), 'oldest')
+    expect(order()).toEqual(['대기 중 먼저 온 문의', '대기 중 나중에 온 문의'])
+    // 다른 탭으로 옮겨도 고른 정렬은 그대로이고 탭 건수는 바뀌지 않는다
+    await userEvent.click(screen.getByRole('tab', { name: /^처리 완료/ }))
+    expect(order()).toEqual(['완료된 오래된 문의', '완료된 최신 문의'])
+    expect(screen.getByLabelText('정렬')).toHaveValue('oldest')
+    expect(screen.getAllByRole('tab').map((t) => t.textContent.replace(/\s+/g, ' '))).toEqual(['전체 5', '승인 대기 2', '직접 작성 1', '처리 완료 2'])
+  })
+
+  it('정렬을 바꿔도 보고 있던 문의는 그대로 선택되어 있다', async () => {
+    setup()
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #4' })
+    await userEvent.selectOptions(screen.getByLabelText('정렬'), 'oldest')
+    expect(screen.getByRole('heading', { name: '문의 #4' })).toBeInTheDocument()
     const selected = within(screen.getByRole('list', { name: '문의 목록' })).getByText('대기 중 나중에 온 문의')
     expect(selected.closest('button')).toHaveAttribute('aria-current', 'true')
   })
