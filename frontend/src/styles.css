@@ -26,11 +26,17 @@
   box-sizing: border-box;
 }
 
+/* 성능 평가처럼 긴 화면에서만 세로 스크롤바가 생겨 화면이 옆으로 밀리지 않도록 자리를 항상 비워 둔다 */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  font-family: 'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+  letter-spacing: -0.01em;
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -263,7 +269,7 @@ label {
 /* 상담 화면 */
 .consult {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: var(--side-width, 440px) 9px minmax(0, 1fr);
   height: calc(100vh - var(--topbar-h) - 1px);
 }
 .consult-side {
@@ -271,8 +277,38 @@ label {
   flex-direction: column;
   min-height: 0;
   background: var(--surface);
-  border-right: 1px solid var(--border);
   border-radius: 16px 0 0 0;
+  min-width: 0;
+}
+/* 목록과 문의 내용 사이의 선: 끌어서 너비를 바꾼다 */
+.splitter {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+}
+.splitter::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+.splitter:hover::before,
+.splitter:focus-visible::before,
+body.resizing .splitter::before {
+  left: 3px;
+  width: 3px;
+  border-radius: 2px;
+  background: #9a9a9a;
+}
+.splitter:focus-visible {
+  outline: none;
+}
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 .side-head {
   display: flex;
@@ -284,14 +320,41 @@ label {
   margin: 0;
   font-size: 19px;
 }
-.side-sort {
-  padding: 4px 16px 10px;
-  border-bottom: 1px solid var(--border);
-}
-.side-sort label {
+/* 상태별로 골라 보는 탭 */
+.status-tabs {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: 2px;
+  margin: 4px 16px 10px;
+  padding: 3px;
+  background: var(--pill-bg);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px var(--border);
+}
+.status-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 5px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.status-tab:hover {
+  color: var(--text);
+}
+.status-tab.active {
+  background: var(--pill-active);
+  color: var(--text);
+  font-weight: 700;
+}
+.status-tab-count {
+  margin-left: 2px;
+  font-weight: 500;
+  opacity: 0.75;
 }
 .group-head {
   padding: 8px 16px;
@@ -629,6 +692,9 @@ mark {
     grid-template-columns: 1fr;
     height: auto;
   }
+  .splitter {
+    display: none;
+  }
   .consult-side {
     max-height: 50vh;
   }
@@ -702,4 +768,22 @@ mark {
 }
 .row-selected {
   background: #ececec;
+}
+
+/* 작업 기록: 행동마다 다른 색 */
+.tag.action-approve {
+  background: #dcf3e6;
+  color: #17643d;
+}
+.tag.action-edit {
+  background: #dfeafd;
+  color: #1d4ea8;
+}
+.tag.action-rewrite {
+  background: #ece3fb;
+  color: #5b34a8;
+}
+.tag.action-manual_write {
+  background: #fde8d3;
+  color: #9a4a06;
 }

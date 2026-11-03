@@ -27,7 +27,7 @@ export default function LoginPage() {
   return (
     <div className="login-wrap">
       <form className="login-card" onSubmit={submit} noValidate>
-        <h1>상담사 답변 도우미</h1>
+        <h1>고동동 CS</h1>
         <p className="muted">상담사 계정으로 로그인하세요.</p>
 
         <label htmlFor="username">아이디</label>

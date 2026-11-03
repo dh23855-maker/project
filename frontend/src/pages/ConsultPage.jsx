@@ -1,10 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../api.js'
 import InquiryDetail from '../components/InquiryDetail.jsx'
-import InquiryList, { DEFAULT_SORT, SORT_OPTIONS } from '../components/InquiryList.jsx'
+import InquiryList, { DEFAULT_FILTER, StatusTabs } from '../components/InquiryList.jsx'
 import NewInquiryForm from '../components/NewInquiryForm.jsx'
 
-// 상담 화면: 왼쪽 문의 목록, 오른쪽 선택한 문의 처리.
+const SIDE_KEY = 'consult-side-width'
+export const SIDE_DEFAULT = 440
+export const SIDE_MIN = 280
+const SIDE_MAX_RATIO = 0.6 // 목록은 화면 너비의 60%까지만 넓힌다
+
+function maxSideWidth() {
+  return Math.max(SIDE_MIN, Math.floor(window.innerWidth * SIDE_MAX_RATIO))
+}
+
+export function clampSideWidth(width) {
+  return Math.min(Math.max(Math.round(width), SIDE_MIN), maxSideWidth())
+}
+
+// 마지막으로 정한 목록 너비를 기억한다 (브라우저에 저장되지 않으면 기본값)
+function loadSideWidth() {
+  try {
+    const saved = Number(window.localStorage.getItem(SIDE_KEY))
+    if (saved) return clampSideWidth(saved)
+  } catch {
+    // 저장소를 못 쓰는 환경이면 기본값을 쓴다
+  }
+  return clampSideWidth(SIDE_DEFAULT)
+}
+
+// 상담 화면: 왼쪽 문의 목록, 오른쪽 선택한 문의 처리. 가운데 선을 끌어 목록 너비를 바꿀 수 있다.
 export default function ConsultPage() {
   const [items, setItems] = useState([])
   const [listState, setListState] = useState('loading')
@@ -13,7 +37,8 @@ export default function ConsultPage() {
   const [detailState, setDetailState] = useState('idle')
   const [notice, setNotice] = useState(null) // { kind: 'error' | 'success', text }
   const [busyText, setBusyText] = useState(null)
-  const [sort, setSort] = useState(DEFAULT_SORT)
+  const [filter, setFilter] = useState(DEFAULT_FILTER)
+  const [sideWidth, setSideWidth] = useState(loadSideWidth)
   const shownId = useRef(null) // 지금 화면에 이미 받아 둔 문의의 번호
 
   useEffect(() => {
@@ -88,6 +113,43 @@ export default function ConsultPage() {
     }
   }
 
+  function saveSideWidth(width) {
+    try {
+      window.localStorage.setItem(SIDE_KEY, String(width))
+    } catch {
+      // 저장하지 못해도 이번 화면에서는 바뀐 너비로 보인다
+    }
+  }
+
+  function startDrag(event) {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = sideWidth
+    let latest = startWidth
+    const move = (e) => {
+      latest = clampSideWidth(startWidth + e.clientX - startX)
+      setSideWidth(latest)
+    }
+    const stop = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      document.body.classList.remove('resizing')
+      saveSideWidth(latest)
+    }
+    document.body.classList.add('resizing')
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+  }
+
+  function resizeByKey(event) {
+    const step = event.shiftKey ? 80 : 20
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    const width = clampSideWidth(sideWidth + (event.key === 'ArrowRight' ? step : -step))
+    setSideWidth(width)
+    saveSideWidth(width)
+  }
+
   const handlers = detail && {
     onApprove: () => run('승인하는 중...', () => api.approve(detail.id, detail.version), '승인했습니다.'),
     onEdit: (text) =>
@@ -109,29 +171,30 @@ export default function ConsultPage() {
   }
 
   return (
-    <div className="consult">
-      <aside className="consult-side" aria-label="받은편지함">
+    <div className="consult" style={{ '--side-width': `${sideWidth}px` }}>
+      <aside className="consult-side" aria-label="받은 문의">
         <div className="side-head">
-          <h2>받은편지함</h2>
+          <h2>받은 문의</h2>
           <span className="muted">{items.length}건</span>
         </div>
-        <div className="side-sort">
-          <label>
-            정렬
-            <select value={sort} onChange={(e) => setSort(e.target.value)}>
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <StatusTabs items={items} filter={filter} onChange={setFilter} />
         <div className="side-list">
-          <InquiryList items={items} selectedId={selectedId} onSelect={select} state={listState} sort={sort} />
+          <InquiryList items={items} selectedId={selectedId} onSelect={select} state={listState} filter={filter} />
         </div>
         <NewInquiryForm onCreated={created} disabled={Boolean(busyText)} />
       </aside>
+
+      <div
+        className="splitter"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="목록과 문의 내용의 너비 조절"
+        aria-valuenow={sideWidth}
+        aria-valuemin={SIDE_MIN}
+        tabIndex={0}
+        onPointerDown={startDrag}
+        onKeyDown={resizeByKey}
+      />
 
       <main className="consult-main">
         {notice && (

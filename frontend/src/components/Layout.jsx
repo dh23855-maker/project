@@ -7,7 +7,7 @@ export default function Layout() {
   return (
     <div className="app">
       <header className="topbar">
-        <span className="brand">상담사 답변 도우미</span>
+        <span className="brand">고동동 CS</span>
         <nav aria-label="메뉴">
           <NavLink to="/" end>
             상담

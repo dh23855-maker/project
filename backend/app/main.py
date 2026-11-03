@@ -41,7 +41,7 @@ def create_app(schema=None, classifier=None, policy=None, drafter=None, eval_pat
         finally:
             pool.close()
 
-    app = FastAPI(title="상담사 답변 도우미", lifespan=lifespan)
+    app = FastAPI(title="고동동 CS", lifespan=lifespan)
 
     # max_age=None: 로그인 정보가 브라우저를 닫으면 사라지는 쿠키로 저장된다.
     app.add_middleware(

@@ -13,16 +13,16 @@ export const ACTION_LABEL = {
   manual_write: '직접 작성',
 }
 
+const two = (n) => String(n).padStart(2, '0')
+
+// 2026.11.03 09:51 AM (브라우저의 시간대 기준)
 export function formatTime(iso) {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString('ko-KR', {
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const hours = date.getHours()
+  const clock = `${two(hours % 12 === 0 ? 12 : hours % 12)}:${two(date.getMinutes())} ${hours < 12 ? 'AM' : 'PM'}`
+  return `${date.getFullYear()}.${two(date.getMonth() + 1)}.${two(date.getDate())} ${clock}`
 }
 
 export function snippet(text, length = 44) {

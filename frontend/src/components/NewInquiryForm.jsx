@@ -36,7 +36,7 @@ export default function NewInquiryForm({ onCreated, disabled }) {
         value={body}
         onChange={(e) => setBody(e.target.value)}
         rows={3}
-        placeholder="시연용 문의를 입력하세요"
+        placeholder="문의를 입력하세요"
         disabled={sending || disabled}
       />
       <div className="new-inquiry-foot">

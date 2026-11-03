@@ -131,7 +131,7 @@ describe('성능 평가 화면', () => {
     expect(history.getByText('84/140 (60.0%)')).toBeInTheDocument()
     expect(history.getByText('박상담')).toBeInTheDocument()
 
-    await userEvent.click(history.getByRole('button', { name: /11\. 2\..* 결과 보기/ }))
+    await userEvent.click(history.getByRole('button', { name: /2026\.11\.02 .* 결과 보기/ }))
     const result = within(await screen.findByLabelText('평가 결과 1'))
     expect(result.getByText(/140개 중 84개/)).toBeInTheDocument()
     expect(result.getByText('(60.0%)')).toBeInTheDocument()

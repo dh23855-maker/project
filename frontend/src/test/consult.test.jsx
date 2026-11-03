@@ -27,7 +27,7 @@ describe('상담 화면: 보기', () => {
 
     expect(await screen.findByRole('heading', { name: '문의 #1' })).toBeInTheDocument()
     const list = screen.getByRole('list', { name: '문의 목록' })
-    expect(within(list).getAllByText('승인 대기')).toHaveLength(2) // 묶음 제목 + 문의 상태
+    expect(within(list).getAllByText('승인 대기')).toHaveLength(1) // 문의 상태 (탭의 '승인 대기'는 목록 밖)
     expect(within(list).getByText(/취소·환불 · 97.9%/)).toBeInTheDocument()
 
     expect(detailArea().getByText('취소·환불 (확신도 97.9%)')).toBeInTheDocument()
@@ -467,7 +467,7 @@ describe('상담 화면: 새 문의 입력', () => {
   })
 })
 
-describe('받은편지함 정렬', () => {
+describe('받은 문의: 상태별 보기', () => {
   const item = (id, status, createdAt, body) =>
     toListItem(makeDetail({ id, status, status_ko: status, created_at: createdAt, body }))
   // 서버는 최신 문의부터 돌려준다
@@ -478,66 +478,139 @@ describe('받은편지함 정렬', () => {
     item(2, 'awaiting_approval', '2026-11-02T10:00:00+09:00', '대기 중 먼저 온 문의'),
     item(1, 'done', '2026-11-02T09:00:00+09:00', '완료된 오래된 문의'),
   ]
-  const setup = () =>
+  const setup = (list = mixed) =>
     mockServer({
       'GET /api/auth/me': { id: 1, username: 'kim', display_name: '김상담' },
-      'GET /api/inquiries': mixed,
+      'GET /api/inquiries': list,
       'GET /api/inquiries/4': makeDetail({ id: 4 }),
     })
   const order = () =>
     within(screen.getByRole('list', { name: '문의 목록' }))
       .getAllByRole('button')
       .map((b) => b.querySelector('.inquiry-text').textContent)
+  const tab = (name) => screen.getByRole('tab', { name: new RegExp(`^${name}`) })
 
-  it('처음에는 상태별로 모아 보여 주고, 묶음마다 제목과 건수가 있다', async () => {
+  it('처음에는 전체 탭이 선택되어 최신순으로 보이고, 탭마다 건수가 있다', async () => {
     setup()
     renderApp()
     await screen.findByRole('heading', { name: '문의 #4' })
     expect(order()).toEqual([
-      '대기 중 나중에 온 문의',
-      '대기 중 먼저 온 문의',
-      '직접 작성할 문의',
       '완료된 최신 문의',
+      '대기 중 나중에 온 문의',
+      '직접 작성할 문의',
+      '대기 중 먼저 온 문의',
       '완료된 오래된 문의',
     ])
-    const heads = Array.from(document.querySelectorAll('.group-head')).map((el) => el.textContent)
-    expect(heads).toEqual(['승인 대기 2건', '직접 작성 1건', '처리 완료 2건'])
-    expect(screen.getByLabelText('정렬')).toHaveValue('status')
+    expect(tab('전체')).toHaveAttribute('aria-selected', 'true')
+    const names = screen.getAllByRole('tab').map((t) => t.textContent.replace(/\s+/g, ' '))
+    expect(names).toEqual(['전체 5', '승인 대기 2', '직접 작성 1', '처리 완료 2'])
+    expect(screen.queryByLabelText('정렬')).not.toBeInTheDocument()
   })
 
-  it('최신순과 오래된순으로 바꾸면 묶음 제목 없이 날짜순으로 보여 준다', async () => {
+  it('상태 탭을 누르면 그 상태의 문의만 최신순으로 보인다', async () => {
     setup()
     renderApp()
     await screen.findByRole('heading', { name: '문의 #4' })
 
-    await userEvent.selectOptions(screen.getByLabelText('정렬'), 'newest')
-    expect(order()).toEqual([
-      '완료된 최신 문의',
-      '대기 중 나중에 온 문의',
-      '직접 작성할 문의',
-      '대기 중 먼저 온 문의',
-      '완료된 오래된 문의',
-    ])
-    expect(document.querySelectorAll('.group-head')).toHaveLength(0)
+    await userEvent.click(tab('승인 대기'))
+    expect(order()).toEqual(['대기 중 나중에 온 문의', '대기 중 먼저 온 문의'])
+    expect(tab('승인 대기')).toHaveAttribute('aria-selected', 'true')
+    expect(tab('전체')).toHaveAttribute('aria-selected', 'false')
 
-    await userEvent.selectOptions(screen.getByLabelText('정렬'), 'oldest')
-    expect(order()).toEqual([
-      '완료된 오래된 문의',
-      '대기 중 먼저 온 문의',
-      '직접 작성할 문의',
-      '대기 중 나중에 온 문의',
-      '완료된 최신 문의',
-    ])
+    await userEvent.click(tab('처리 완료'))
+    expect(order()).toEqual(['완료된 최신 문의', '완료된 오래된 문의'])
+
+    await userEvent.click(tab('직접 작성'))
+    expect(order()).toEqual(['직접 작성할 문의'])
+
+    await userEvent.click(tab('전체'))
+    expect(order()).toHaveLength(5)
   })
 
-  it('정렬을 바꿔도 보고 있던 문의는 그대로 선택되어 있다', async () => {
+  it('해당하는 문의가 없는 탭은 안내 문구를 보여 준다', async () => {
+    setup(mixed.filter((i) => i.status !== 'manual'))
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #4' })
+    await userEvent.click(tab('직접 작성'))
+    expect(screen.getByText('이 상태의 문의가 없습니다.')).toBeInTheDocument()
+  })
+
+  it('탭을 바꿔도 보고 있던 문의는 오른쪽에 그대로 열려 있다', async () => {
     setup()
     renderApp()
     await screen.findByRole('heading', { name: '문의 #4' })
-    await userEvent.selectOptions(screen.getByLabelText('정렬'), 'oldest')
+    await userEvent.click(tab('처리 완료'))
     expect(screen.getByRole('heading', { name: '문의 #4' })).toBeInTheDocument()
+    await userEvent.click(tab('승인 대기'))
     const selected = within(screen.getByRole('list', { name: '문의 목록' })).getByText('대기 중 나중에 온 문의')
     expect(selected.closest('button')).toHaveAttribute('aria-current', 'true')
+  })
+})
+
+describe('목록 너비 조절', () => {
+  const setup = () =>
+    mockServer({
+      'GET /api/auth/me': { id: 1, username: 'kim', display_name: '김상담' },
+      'GET /api/inquiries': [toListItem(makeDetail({ id: 1 }))],
+      'GET /api/inquiries/1': makeDetail({ id: 1 }),
+    })
+  const separator = () => screen.getByRole('separator', { name: '목록과 문의 내용의 너비 조절' })
+
+  beforeEach(() => {
+    window.localStorage.clear()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1400 })
+  })
+
+  it('처음에는 기본 너비(440px)이고 화살표 키로 넓히거나 좁힐 수 있다', async () => {
+    setup()
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #1' })
+    expect(separator()).toHaveAttribute('aria-valuenow', '440')
+    expect(document.querySelector('.consult').style.getPropertyValue('--side-width')).toBe('440px')
+
+    separator().focus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(separator()).toHaveAttribute('aria-valuenow', '460')
+    await userEvent.keyboard('{Shift>}{ArrowLeft}{/Shift}')
+    expect(separator()).toHaveAttribute('aria-valuenow', '380')
+    expect(document.querySelector('.consult').style.getPropertyValue('--side-width')).toBe('380px')
+  })
+
+  it('너무 좁거나 너무 넓게는 만들 수 없다', async () => {
+    setup()
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #1' })
+    separator().focus()
+    for (let i = 0; i < 6; i++) await userEvent.keyboard('{Shift>}{ArrowLeft}{/Shift}')
+    expect(separator()).toHaveAttribute('aria-valuenow', '280')
+    for (let i = 0; i < 20; i++) await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}')
+    expect(separator()).toHaveAttribute('aria-valuenow', '840') // 화면 너비 1400의 60%
+  })
+
+  it('끌어서 바꾼 너비는 기억해 두었다가 다음에 열 때 그대로 쓴다', async () => {
+    setup()
+    const first = renderApp()
+    await screen.findByRole('heading', { name: '문의 #1' })
+    separator().focus()
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}')
+    expect(window.localStorage.getItem('consult-side-width')).toBe('480')
+    first.unmount()
+
+    setup()
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #1' })
+    expect(separator()).toHaveAttribute('aria-valuenow', '480')
+  })
+
+  it('저장소를 쓸 수 없어도 기본 너비로 잘 열린다', async () => {
+    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    setup()
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #1' })
+    expect(separator()).toHaveAttribute('aria-valuenow', '440')
+    spy.mockRestore()
   })
 })
 

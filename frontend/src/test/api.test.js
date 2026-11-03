@@ -100,4 +100,12 @@ describe('format', () => {
     expect(formatTime('날짜 아님')).toBe('')
     expect(formatTime('2026-11-02T10:30:00+09:00')).not.toBe('')
   })
+
+  it('formatTime은 2026.11.03 09:51 AM 형태로 보여 준다 (시간대 없는 값은 이 컴퓨터의 시각으로 읽는다)', () => {
+    expect(formatTime('2026-11-03T09:51:00')).toBe('2026.11.03 09:51 AM')
+    expect(formatTime('2026-11-03T13:05:00')).toBe('2026.11.03 01:05 PM')
+    expect(formatTime('2026-01-05T00:07:00')).toBe('2026.01.05 12:07 AM')
+    expect(formatTime('2026-01-05T12:00:00')).toBe('2026.01.05 12:00 PM')
+    expect(formatTime('2026-12-31T23:59:00')).toBe('2026.12.31 11:59 PM')
+  })
 })
