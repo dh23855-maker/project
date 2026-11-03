@@ -177,7 +177,21 @@ class EvaluationDetail(EvaluationSummary):
     difficulties: list[str]
 
 
-class StatsType(BaseModel):
+class StatsBreakdown(BaseModel):
+    """묶음(전체, 종류, 칸) 하나의 초안·확신도 현황."""
+
+    drafted: int  # 초안이 있는 문의 수
+    uncovered: int  # 그중 규정 문서에는 없는 내용이 있는 문의 수
+    uncovered_percent: float | None  # uncovered / drafted (초안이 없으면 None)
+    low_confidence: int  # 확신도가 기준값보다 낮거나 분류를 못 한 문의 수
+    low_confidence_percent: float | None  # low_confidence / 전체 (문의가 없으면 None)
+
+
+class StatsOverall(StatsBreakdown):
+    total: int
+
+
+class StatsType(StatsBreakdown):
     code: str
     name: str
     who: str  # 구매자 / 판매자 (분류 없음은 빈 글자)
@@ -185,16 +199,32 @@ class StatsType(BaseModel):
     percent: float
 
 
-class StatsDay(BaseModel):
-    date: str  # 2026-11-03
-    total: int
+class StatsBucket(StatsOverall):
+    key: str  # 날짜(2026-11-03) 또는 시간(09)
+    label: str
     counts: dict[str, int]  # 종류 코드 -> 건수 (모든 종류, 없으면 0)
+
+
+class StatsHandling(BaseModel):
+    statuses: dict[str, int]  # 승인 대기 / 직접 작성 / 처리 완료 건수
+    done: int
+    resolution: dict[str, int]  # 처리 완료 문의를 마지막에 처리한 방법: approve / edit / manual_write
+    approve_percent: float | None  # 초안 그대로 승인된 비율 (처리 완료 중)
+    rewrite_count: int
+    rewrite_percent: float | None
+    median_minutes: float | None  # 들어온 뒤 처리까지 걸린 시간(분)의 중앙값
+    average_minutes: float | None
 
 
 class InquiryStatsOut(BaseModel):
     days: int
+    unit: str  # day 또는 hour
+    elapsed: int  # 지금까지 지난 칸 수 (하루 평균·시간당 평균을 구할 때 쓴다)
     start: str
     end: str
     total: int
+    threshold: int  # 지금의 확신도 기준값(%)
+    overall: StatsOverall
     types: list[StatsType]
-    daily: list[StatsDay]
+    buckets: list[StatsBucket]
+    handling: StatsHandling

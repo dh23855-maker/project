@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api", tags=["stats"])
 
 @router.get("/stats/inquiries", response_model=InquiryStatsOut)
 def inquiry_stats(
-    days: int = Query(stats.DEFAULT_DAYS, description="최근 며칠 (7, 14, 30)"),
+    days: int = Query(stats.DEFAULT_DAYS, description="1이면 오늘(시간대별), 7·14·30이면 최근 며칠"),
     agent=Depends(current_agent),
     conn=Depends(get_conn),
 ):

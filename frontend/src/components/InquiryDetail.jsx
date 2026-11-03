@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { classificationText, formatTime } from '../format.js'
 import EvidenceList from './EvidenceList.jsx'
 import { StatusBadge } from './InquiryList.jsx'
@@ -7,8 +8,30 @@ import RiskWarnings from './RiskWarnings.jsx'
 
 // 한 문의를 한 화면에서 처리한다: 문의 내용, 분류 결과, 초안, 근거, 버튼.
 // 어떤 버튼을 보여줄지는 서버가 알려 준 detail.actions를 그대로 따른다.
-export default function InquiryDetail({ detail, busyText, handlers }) {
+// 버튼 줄이 문의 내용 칸 안에서 보이는지 알려 준다. 브라우저가 지켜보기 기능을 지원하지 않으면 늘 보이는 것으로 본다.
+function useVisible(ref, root, active) {
+  const [visible, setVisible] = useState(true)
+  useEffect(() => {
+    const target = ref.current
+    if (!active || !target || !root || typeof IntersectionObserver === 'undefined') {
+      setVisible(true)
+      return undefined
+    }
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { root })
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [ref, root, active])
+  return visible
+}
+
+// scrollRoot: 문의 내용이 스크롤되는 칸, dock: 그 아래에 붙은 빈 자리.
+// 승인·수정·재작성 버튼은 내용 맨 아래(제자리)에 있고, 그 자리가 화면 밖일 때만 dock에 같은 버튼을 보여 준다.
+// dock은 스크롤 칸 밖이라 글씨를 덮지 않는다.
+export default function InquiryDetail({ detail, busyText, handlers, scrollRoot = null, dock = null }) {
   const [editing, setEditing] = useState(false)
+  const rowRef = useRef(null)
+  const buttonsShown = !editing && (detail.status === 'awaiting_approval' ? Boolean(detail.current_draft) : detail.status === 'done' && (detail.actions ?? []).includes('reedit'))
+  const rowVisible = useVisible(rowRef, scrollRoot, buttonsShown)
 
   // 다른 문의를 열거나 문의가 처리되어 version이 바뀌면 고치던 상태를 닫는다
   useEffect(() => {
@@ -16,9 +39,39 @@ export default function InquiryDetail({ detail, busyText, handlers }) {
   }, [detail.id, detail.version])
 
   const busy = Boolean(busyText)
-  const can = (action) => detail.actions.includes(action)
+  const can = (action) => (detail.actions ?? []).includes(action)
   const draft = detail.current_draft
   const isSecondDraft = draft?.draft_no === 2
+
+  const draftButtons = (
+    <>
+      {can('approve') && (
+        <button type="button" className="btn btn-primary" onClick={handlers.onApprove} disabled={busy}>
+          승인
+        </button>
+      )}
+      {can('edit') && (
+        <button type="button" className="btn" onClick={() => setEditing(true)} disabled={busy}>
+          수정
+        </button>
+      )}
+      {can('rewrite') && (
+        <button type="button" className="btn" onClick={handlers.onRewrite} disabled={busy}>
+          재작성
+        </button>
+      )}
+      {can('handoff') && (
+        <button type="button" className="btn" onClick={handlers.onHandoff} disabled={busy}>
+          직접 작성으로 넘기기
+        </button>
+      )}
+    </>
+  )
+  const reeditButtons = (
+    <button type="button" className="btn" onClick={() => setEditing(true)} disabled={busy}>
+      다시 수정
+    </button>
+  )
 
   return (
     <article className="detail" aria-label={`문의 ${detail.id}`}>
@@ -83,27 +136,8 @@ export default function InquiryDetail({ detail, busyText, handlers }) {
           />
 
           {!editing && (
-            <div className="button-row sticky">
-              {can('approve') && (
-                <button type="button" className="btn btn-primary" onClick={handlers.onApprove} disabled={busy}>
-                  승인
-                </button>
-              )}
-              {can('edit') && (
-                <button type="button" className="btn" onClick={() => setEditing(true)} disabled={busy}>
-                  수정
-                </button>
-              )}
-              {can('rewrite') && (
-                <button type="button" className="btn" onClick={handlers.onRewrite} disabled={busy}>
-                  재작성
-                </button>
-              )}
-              {can('handoff') && (
-                <button type="button" className="btn" onClick={handlers.onHandoff} disabled={busy}>
-                  직접 작성으로 넘기기
-                </button>
-              )}
+            <div className="button-row" ref={rowRef}>
+              {draftButtons}
             </div>
           )}
           <p className="hint">승인해도 답장은 고객에게 실제로 발송되지 않습니다.</p>
@@ -153,14 +187,18 @@ export default function InquiryDetail({ detail, busyText, handlers }) {
           />
 
           {!editing && can('reedit') && (
-            <div className="button-row sticky">
-              <button type="button" className="btn" onClick={() => setEditing(true)} disabled={busy}>
-                다시 수정
-              </button>
+            <div className="button-row" ref={rowRef}>
+              {reeditButtons}
             </div>
           )}
         </>
       )}
+
+      {dock && buttonsShown && !rowVisible &&
+        createPortal(
+          <div className="button-row dock-row">{detail.status === 'done' ? reeditButtons : draftButtons}</div>,
+          dock,
+        )}
     </article>
   )
 }

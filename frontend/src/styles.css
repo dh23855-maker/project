@@ -195,6 +195,16 @@ label {
   background: var(--surface);
   border-radius: 999px;
   box-shadow: 0 0 0 1px var(--border);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.brand:hover {
+  background: var(--pill-active);
+}
+.brand:focus-visible {
+  outline-offset: 3px;
 }
 .topbar nav {
   display: flex;
@@ -208,19 +218,41 @@ label {
   transform: translateX(-50%);
 }
 .topbar nav a {
+  position: relative;
+  z-index: 1;
   padding: 5px 18px;
   border-radius: 999px;
   color: var(--muted);
   text-decoration: none;
   font-weight: 600;
+  transition: color 0.2s;
 }
 .topbar nav a:hover {
   color: var(--text);
 }
 .topbar nav a.active {
-  background: var(--pill-active);
   color: var(--text);
-  font-weight: 700;
+}
+/* 선택한 메뉴 뒤에서 미끄러지듯 움직이는 알약 */
+.nav-pill {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  border-radius: 999px;
+  background: var(--pill-active);
+  z-index: 0;
+}
+.nav-pill.animate {
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-pill.animate {
+    transition: none;
+  }
+  .topbar nav a {
+    transition: none;
+  }
 }
 .spacer {
   flex: 1;
@@ -451,9 +483,31 @@ body.resizing {
   font-weight: 700;
 }
 .consult-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.consult-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 24px 32px 40px;
-  min-width: 0;
+}
+/* 버튼 자리가 화면 밖일 때만 내용 칸 아래에 붙어서 나타난다. 내용 칸 밖이라 글씨를 덮지 않는다 */
+.action-dock {
+  flex: none;
+}
+.action-dock:empty {
+  display: none;
+}
+.action-dock .dock-row {
+  margin: 0;
+  padding: 12px 32px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 14px rgba(0, 0, 0, 0.05);
 }
 
 /* 상태 표시 */
@@ -632,12 +686,6 @@ mark {
   gap: 8px;
   margin-top: 10px;
 }
-.button-row.sticky {
-  position: sticky;
-  bottom: 0;
-  padding: 12px 0;
-  background: linear-gradient(to top, var(--surface) 70%, transparent);
-}
 .editor {
   display: flex;
   flex-direction: column;
@@ -719,7 +767,14 @@ mark {
     max-height: 50vh;
   }
   .consult-main {
+    overflow: visible;
+  }
+  .consult-scroll {
+    overflow: visible;
     padding: 16px;
+  }
+  .action-dock {
+    display: none;
   }
   .topbar {
     gap: 8px;
@@ -729,7 +784,8 @@ mark {
     display: none;
   }
   .topbar nav {
-    position: static;
+    position: relative;
+    left: auto;
     transform: none;
   }
   .topbar nav a {
@@ -984,5 +1040,122 @@ mark {
   }
   .stats-controls {
     flex-wrap: wrap;
+  }
+}
+
+/* 문의 현황: 비율·처리 현황 */
+.card-note {
+  margin: 0 0 10px;
+}
+.headline {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 4px 0 6px;
+}
+.headline-value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.sub-title {
+  margin: 18px 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.rate-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rate-bars li {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 64px 76px;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 0;
+}
+.rate-track {
+  height: 14px;
+  border-radius: 7px;
+  background: #eeeeee;
+  overflow: hidden;
+}
+.rate-fill {
+  display: block;
+  height: 100%;
+  border-radius: 7px;
+  background: var(--series-1);
+}
+.rate-value {
+  text-align: right;
+  font-weight: 700;
+}
+.rate-count {
+  text-align: right;
+  font-size: 13px;
+}
+.chart .rate-segment {
+  fill: var(--series-1);
+}
+.mini-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.mini {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--surface-alt);
+}
+.mini-label {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.mini-value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.split-bar {
+  display: flex;
+  gap: 2px;
+  height: 22px;
+  border-radius: 11px;
+  overflow: hidden;
+  margin: 4px 0 10px;
+}
+.split-part {
+  min-width: 6px;
+}
+.shade-dark {
+  background: #1f1f1f;
+}
+.shade-mid {
+  background: #707070;
+}
+.shade-light {
+  background: #c4c4c4;
+}
+.resolution-legend {
+  grid-template-columns: 1fr;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 860px) {
+  .rate-bars li {
+    grid-template-columns: 76px minmax(0, 1fr) 56px;
+  }
+  .rate-count {
+    display: none;
+  }
+  .mini-row {
+    grid-template-columns: 1fr;
   }
 }

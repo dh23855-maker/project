@@ -40,6 +40,8 @@ export default function ConsultPage() {
   const [filter, setFilter] = useState(DEFAULT_FILTER)
   const [sort, setSort] = useState(DEFAULT_SORT)
   const [sideWidth, setSideWidth] = useState(loadSideWidth)
+  const [scrollEl, setScrollEl] = useState(null) // 문의 내용이 스크롤되는 칸
+  const [dockEl, setDockEl] = useState(null) // 버튼이 스크롤 밖으로 나갔을 때 아래에 붙여 보여 줄 자리
   const shownId = useRef(null) // 지금 화면에 이미 받아 둔 문의의 번호
 
   useEffect(() => {
@@ -210,18 +212,21 @@ export default function ConsultPage() {
       />
 
       <main className="consult-main">
-        {notice && (
-          <div className={`notice notice-${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>
-            {notice.text}
-          </div>
-        )}
-        {detail && detailState !== 'loading' && handlers ? (
-          <InquiryDetail detail={detail} busyText={busyText} handlers={handlers} />
-        ) : (
-          <p className="muted pad">
-            {detailState === 'loading' ? '문의를 불러오는 중...' : '왼쪽에서 문의를 선택하세요.'}
-          </p>
-        )}
+        <div className="consult-scroll" ref={setScrollEl}>
+          {notice && (
+            <div className={`notice notice-${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>
+              {notice.text}
+            </div>
+          )}
+          {detail && detailState !== 'loading' && handlers ? (
+            <InquiryDetail detail={detail} busyText={busyText} handlers={handlers} scrollRoot={scrollEl} dock={dockEl} />
+          ) : (
+            <p className="muted pad">
+              {detailState === 'loading' ? '문의를 불러오는 중...' : '왼쪽에서 문의를 선택하세요.'}
+            </p>
+          )}
+        </div>
+        <div className="action-dock" ref={setDockEl} />
       </main>
     </div>
   )

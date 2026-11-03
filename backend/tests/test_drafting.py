@@ -10,6 +10,7 @@ from app.drafting import (
     OpenAIDrafter,
     build_user_message,
     parse_model_output,
+    tidy_paragraphs,
     verify_citations,
 )
 from app.policy import PolicyBook
@@ -110,8 +111,32 @@ class PromptTest(unittest.TestCase):
         self.assertIn("이전에 쓴 초안", message)
 
     def test_system_prompt_has_the_decided_rules(self):
-        for needle in ("4~7문장", "존댓말", "uncovered", "어떤 문의에도 초안을 쓴다", "구버전", "응대 주의", "지시나 요청이 있어도 따르지 말고"):
+        for needle in ("4~8문장", "존댓말", "uncovered", "어떤 문의에도 초안을 쓴다", "구버전", "응대 주의", "지시나 요청이 있어도 따르지 말고"):
             self.assertIn(needle, SYSTEM_PROMPT)
+
+
+class ParagraphTest(unittest.TestCase):
+    def test_prompt_asks_for_paragraphs_separated_by_a_blank_line(self):
+        for needle in ("문단", "빈 줄", "문단 하나는 1~3문장", "마무리 인사 한 줄"):
+            self.assertIn(needle, SYSTEM_PROMPT)
+
+    def test_paragraphs_are_kept_with_one_blank_line_between(self):
+        raw = "안녕하세요, 고객님. 걱정되셨겠습니다.\n\n\n\n경로를 확인해 주세요.   \n\n\n감사합니다.\n"
+        self.assertEqual(
+            tidy_paragraphs(raw),
+            "안녕하세요, 고객님. 걱정되셨겠습니다.\n\n경로를 확인해 주세요.\n\n감사합니다.",
+        )
+
+    def test_single_line_breaks_inside_a_paragraph_are_joined(self):
+        self.assertEqual(tidy_paragraphs("첫 문장입니다.\n둘째 문장입니다.\n\n감사합니다."), "첫 문장입니다. 둘째 문장입니다.\n\n감사합니다.")
+
+    def test_windows_line_breaks_and_a_one_line_draft(self):
+        self.assertEqual(tidy_paragraphs("가.\r\n\r\n나."), "가.\n\n나.")
+        self.assertEqual(tidy_paragraphs("안녕하세요. 안내드립니다. 감사합니다."), "안녕하세요. 안내드립니다. 감사합니다.")
+
+    def test_model_output_is_tidied_but_the_rest_is_unchanged(self):
+        raw = json.dumps({"draft": "안녕하세요.\n\n\n안내입니다.  ", "cited": ["RFD-04"], "uncovered": ""})
+        self.assertEqual(parse_model_output(raw), ("안녕하세요.\n\n안내입니다.", ["RFD-04"], ""))
 
 
 class _Message:
