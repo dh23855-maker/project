@@ -4,7 +4,7 @@ import { api } from '../api.js'
 const MAX_LENGTH = 1000
 
 // 시연용 새 문의 입력. 등록하면 바로 분류되고, 승인 대기가 될 문의에는 초안이 붙는다 (몇 초 걸림).
-export default function NewInquiryForm({ onCreated, disabled }) {
+export default function NewInquiryForm({ onCreated, disabled, headerExtra = null }) {
   const [body, setBody] = useState('')
   const [error, setError] = useState('')
   const [sending, setSending] = useState(false)
@@ -38,7 +38,10 @@ export default function NewInquiryForm({ onCreated, disabled }) {
 
   return (
     <form className="new-inquiry" onSubmit={submit}>
-      <label htmlFor="new-inquiry-body">새 문의 입력</label>
+      <div className="new-inquiry-head">
+        <label htmlFor="new-inquiry-body">새 문의 입력</label>
+        {headerExtra}
+      </div>
       <textarea
         id="new-inquiry-body"
         value={body}

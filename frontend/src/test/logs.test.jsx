@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -66,6 +68,40 @@ describe('작업 기록 화면', () => {
     expect(screen.getByText('처음에 쓴 초안 본문')).toBeInTheDocument()
     expect(screen.getByText('새 초안')).toBeInTheDocument() // 소제목
     expect(screen.getByText('다시 쓴 초안 본문')).toBeInTheDocument()
+  })
+
+  it('[자세히]의 초안, 새 초안, 최종 답장은 각각 따로 둥근 상자에 담겨 구분된다', async () => {
+    mockServer(
+      routes(() => [
+        row({ id: 1, draft_text: '초안 본문', final_reply: '최종 답장 본문' }),
+        row({ id: 2, action: 'rewrite', action_ko: '재작성', draft_text: '처음 초안', new_draft_text: '새 초안 본문', final_reply: null }),
+      ]),
+    )
+    renderApp('/logs')
+    await screen.findByRole('table')
+    const buttons = screen.getAllByRole('button', { name: '자세히' })
+
+    await userEvent.click(buttons[0])
+    const blocks = () => [...document.querySelectorAll('.log-detail .log-block')]
+    expect(blocks().map((b) => b.className.replace('log-block ', ''))).toEqual(['log-block-draft', 'log-block-final'])
+    expect(blocks()[0]).toHaveTextContent('초안초안 본문')
+    expect(blocks()[1]).toHaveTextContent('최종 답장최종 답장 본문')
+
+    await userEvent.click(buttons[1])
+    expect(blocks().map((b) => b.className.replace('log-block ', ''))).toEqual(['log-block-draft', 'log-block-new']) // 다른 행을 열면 앞의 행은 닫힌다
+    expect(blocks()[1]).toHaveTextContent('새 초안새 초안 본문')
+  })
+
+  it('머리글 "행동"에는 뱃지와 열을 맞추는 표시(col-action)가 있다', async () => {
+    mockServer(routes(() => [row()]))
+    renderApp('/logs')
+    await screen.findByRole('table')
+    expect(screen.getByRole('columnheader', { name: '행동' })).toHaveClass('col-action')
+    const css = readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf-8')
+    const tagMargin = Number(css.match(/\.tag \{\s*margin-left: (\d+)px/)[1])
+    const headerPad = Number(css.match(/\.table th\.col-action \{\s*padding-left: (\d+)px/)[1])
+    const cellPad = Number(css.match(/\.table th,\s*\.table td \{\s*padding: \d+px (\d+)px/)[1])
+    expect(headerPad).toBe(cellPad + tagMargin) // 뱃지의 왼쪽 위치와 같다
   })
 
   it('상담사와 행동으로 거르면 그 조건으로 다시 불러온다', async () => {

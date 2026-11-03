@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../api.js'
 import InquiryDetail from '../components/InquiryDetail.jsx'
 import InquiryList, { DEFAULT_FILTER, DEFAULT_SORT, SORT_OPTIONS, StatusTabs } from '../components/InquiryList.jsx'
+import BatchUpload from '../components/BatchUpload.jsx'
 import NewInquiryForm from '../components/NewInquiryForm.jsx'
 
 const SIDE_KEY = 'consult-side-width'
@@ -196,7 +197,11 @@ export default function ConsultPage() {
         <div className="side-list">
           <InquiryList items={items} selectedId={selectedId} onSelect={select} state={listState} filter={filter} sort={sort} />
         </div>
-        <NewInquiryForm onCreated={created} disabled={Boolean(busyText)} />
+        <NewInquiryForm
+          onCreated={created}
+          disabled={Boolean(busyText)}
+          headerExtra={<BatchUpload onProgress={refreshList} onFinished={refreshList} />}
+        />
       </aside>
 
       <div

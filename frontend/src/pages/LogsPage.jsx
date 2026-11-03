@@ -79,7 +79,7 @@ export default function LogsPage() {
             <tr>
               <th>시간</th>
               <th>상담사</th>
-              <th>행동</th>
+              <th className="col-action">행동</th>
               <th>문의</th>
               <th />
             </tr>
@@ -111,19 +111,19 @@ export default function LogsPage() {
                   <tr className="log-detail">
                     <td colSpan={5}>
                       {row.draft_text && (
-                        <div>
+                        <div className="log-block log-block-draft">
                           <strong>{row.action === 'rewrite' ? '재작성 전 초안' : '초안'}</strong>
                           <p className="draft-text">{row.draft_text}</p>
                         </div>
                       )}
                       {row.new_draft_text && (
-                        <div>
+                        <div className="log-block log-block-new">
                           <strong>새 초안</strong>
                           <p className="draft-text">{row.new_draft_text}</p>
                         </div>
                       )}
                       {row.final_reply && (
-                        <div>
+                        <div className="log-block log-block-final">
                           <strong>최종 답장</strong>
                           <p className="draft-text">{row.final_reply}</p>
                         </div>
