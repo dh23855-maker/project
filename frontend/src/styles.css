@@ -1,21 +1,24 @@
 :root {
   color-scheme: light;
-  --bg: #f4f6f9;
+  --bg: #f0f0f0;
   --surface: #ffffff;
-  --border: #dde2ea;
-  --text: #1c2430;
-  --muted: #667085;
-  --primary: #2457d6;
-  --primary-dark: #1a42a8;
+  --surface-alt: #f7f7f7;
+  --border: #e6e6e6;
+  --text: #1a1a1a;
+  --muted: #6b6b6b;
+  --primary: #1f1f1f;
+  --primary-dark: #000000;
   --danger: #c0392b;
   --ok: #1e7e4f;
-  --warn-bg: #fff4e0;
-  --warn-border: #f0b44c;
-  --info-bg: #eaf1ff;
-  --info-border: #9db9f2;
+  --warn-bg: #fff6e5;
+  --warn-border: #f0c978;
+  --info-bg: #f2f2f2;
+  --info-border: #d8d8d8;
   --legacy-bg: #fdf0f0;
   --legacy-border: #e5a3a3;
-  --radius: 10px;
+  --pill-bg: #f7f7f7;
+  --pill-active: #e4e4e4;
+  --radius: 14px;
   --topbar-h: 52px;
 }
 
@@ -29,7 +32,8 @@ body {
   color: var(--text);
   font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
   font-size: 15px;
-  line-height: 1.55;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
@@ -39,7 +43,8 @@ h3 {
   line-height: 1.3;
 }
 h1 {
-  font-size: 22px;
+  font-size: 24px;
+  font-weight: 700;
 }
 h2 {
   font-size: 17px;
@@ -74,14 +79,14 @@ textarea {
 .btn {
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: 8px;
-  padding: 8px 16px;
+  border-radius: 999px;
+  padding: 8px 18px;
   cursor: pointer;
   font-weight: 600;
 }
 .btn:hover:not(:disabled) {
-  border-color: var(--primary);
-  color: var(--primary);
+  background: var(--surface-alt);
+  border-color: #cfcfcf;
 }
 .btn:disabled {
   opacity: 0.55;
@@ -93,7 +98,8 @@ textarea {
   color: #fff;
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--primary-dark);
+  background: #3a3a3a;
+  border-color: #3a3a3a;
   color: #fff;
 }
 .btn-danger {
@@ -114,7 +120,7 @@ textarea {
   width: 100%;
 }
 :focus-visible {
-  outline: 3px solid #8fb0ff;
+  outline: 3px solid #9a9a9a;
   outline-offset: 2px;
 }
 
@@ -123,9 +129,15 @@ input,
 select,
 textarea {
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 10px;
+  padding: 9px 12px;
   background: #fff;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #1f1f1f;
 }
 textarea {
   width: 100%;
@@ -159,50 +171,75 @@ label {
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 0 20px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+  background: var(--bg);
 }
 .brand {
   font-weight: 800;
-  color: var(--primary);
+  padding: 6px 14px;
+  background: var(--surface);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px var(--border);
 }
 .topbar nav {
   display: flex;
-  gap: 4px;
+  gap: 2px;
+  padding: 3px;
+  background: var(--pill-bg);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px var(--border);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 .topbar nav a {
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 5px 18px;
+  border-radius: 999px;
   color: var(--muted);
   text-decoration: none;
   font-weight: 600;
 }
+.topbar nav a:hover {
+  color: var(--text);
+}
 .topbar nav a.active {
-  background: var(--info-bg);
-  color: var(--primary);
+  background: var(--pill-active);
+  color: var(--text);
+  font-weight: 700;
 }
 .spacer {
   flex: 1;
 }
 .who {
   font-weight: 700;
+  padding: 5px 14px;
+  background: var(--pill-bg);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px var(--border);
+}
+.content {
+  background: var(--surface);
+  border-radius: 16px 0 0 0;
+  min-height: calc(100vh - var(--topbar-h));
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
 }
 .page {
-  max-width: 920px;
+  max-width: 980px;
   margin: 0 auto;
-  padding: 24px 20px 60px;
+  padding: 28px 24px 60px;
 }
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px 20px;
+  padding: 20px 22px;
   margin-top: 16px;
 }
 
 /* 로그인 */
 .login-wrap {
+  background: var(--bg);
   min-height: 100vh;
   display: grid;
   place-items: center;
@@ -213,8 +250,8 @@ label {
   max-width: 360px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 28px;
+  border-radius: 20px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -227,7 +264,7 @@ label {
 .consult {
   display: grid;
   grid-template-columns: 360px 1fr;
-  height: calc(100vh - var(--topbar-h));
+  height: calc(100vh - var(--topbar-h) - 1px);
 }
 .consult-side {
   display: flex;
@@ -235,6 +272,7 @@ label {
   min-height: 0;
   background: var(--surface);
   border-right: 1px solid var(--border);
+  border-radius: 16px 0 0 0;
 }
 .side-head {
   display: flex;
@@ -244,6 +282,7 @@ label {
 }
 .side-head h2 {
   margin: 0;
+  font-size: 19px;
 }
 .side-sort {
   padding: 4px 16px 10px;
@@ -258,7 +297,8 @@ label {
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 700;
-  background: #f1f4f9;
+  background: var(--surface-alt);
+  color: var(--muted);
   border-bottom: 1px solid var(--border);
 }
 .side-list {
@@ -284,10 +324,10 @@ label {
   cursor: pointer;
 }
 .inquiry-item:hover {
-  background: #f7f9fc;
+  background: var(--surface-alt);
 }
 .inquiry-item.selected {
-  background: var(--info-bg);
+  background: #ececec;
   box-shadow: inset 3px 0 0 var(--primary);
 }
 .inquiry-top {
@@ -312,7 +352,7 @@ label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: #fafbfd;
+  background: var(--surface-alt);
 }
 .new-inquiry-foot {
   display: flex;
@@ -329,7 +369,7 @@ label {
 }
 .consult-main {
   overflow-y: auto;
-  padding: 20px 28px 40px;
+  padding: 24px 32px 40px;
   min-width: 0;
 }
 
@@ -341,7 +381,7 @@ label {
   padding: 2px 10px;
   font-size: 12px;
   font-weight: 700;
-  background: #eef1f6;
+  background: #eeeeee;
   color: var(--muted);
 }
 .badge-awaiting_approval {
@@ -349,8 +389,8 @@ label {
   color: #8a5a00;
 }
 .badge-manual {
-  background: #e8ebf1;
-  color: #4a5568;
+  background: #e8e8e8;
+  color: #444;
 }
 .badge-done {
   background: #dcf3e6;
@@ -383,7 +423,7 @@ label {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 18px;
+  padding: 16px 20px;
   margin-bottom: 14px;
 }
 .body-text,
@@ -403,13 +443,13 @@ label {
 .busy {
   background: var(--info-bg);
   border: 1px solid var(--info-border);
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: 12px;
+  padding: 8px 14px;
   margin: 0 0 12px;
   font-weight: 600;
 }
 .notice {
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 10px 14px;
   margin-bottom: 14px;
   font-weight: 600;
@@ -425,7 +465,7 @@ label {
   color: #17643d;
 }
 .callout {
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 10px 14px;
   margin-top: 10px;
   border: 1px solid;
@@ -492,8 +532,8 @@ mark {
 .clause-body {
   margin: 8px 0 0;
   padding: 10px 12px;
-  background: #f7f9fc;
-  border-radius: 8px;
+  background: var(--surface-alt);
+  border-radius: 10px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font: inherit;
@@ -513,7 +553,7 @@ mark {
   position: sticky;
   bottom: 0;
   padding: 12px 0;
-  background: linear-gradient(to top, var(--bg) 70%, transparent);
+  background: linear-gradient(to top, var(--surface) 70%, transparent);
 }
 .editor {
   display: flex;
@@ -541,18 +581,19 @@ mark {
 }
 .table th,
 .table td {
-  padding: 9px 12px;
+  padding: 11px 12px;
   text-align: left;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 .table th {
-  background: #f1f4f9;
+  background: var(--surface);
   font-size: 13px;
-  color: var(--muted);
+  color: var(--text);
+  font-weight: 700;
 }
 .log-detail td {
-  background: #fafbfd;
+  background: var(--surface-alt);
 }
 .log-detail div {
   margin-bottom: 8px;
@@ -601,6 +642,19 @@ mark {
   .brand {
     display: none;
   }
+  .topbar nav {
+    position: static;
+    transform: none;
+  }
+  .topbar nav a {
+    padding: 5px 10px;
+  }
+  .content {
+    border-radius: 0;
+  }
+  .consult-side {
+    border-radius: 0;
+  }
 }
 
 /* 성능 평가 */
@@ -647,5 +701,5 @@ mark {
   margin: 2px 0;
 }
 .row-selected {
-  background: var(--info-bg);
+  background: #ececec;
 }
