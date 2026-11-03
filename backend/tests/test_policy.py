@@ -1,4 +1,4 @@
-"""Phase 3 시험: 정책 문서 읽기와 근거 조항 찾기 (DB·OpenAI 없이 돈다)."""
+"""Phase 3 시험: 규정 문서 읽기와 규정 문서 찾기 (DB·OpenAI 없이 돈다)."""
 import unittest
 
 from app.policy import LABEL_TO_INTENT, POLICY_PATH, PolicyBook, PolicyError, parse_policy
@@ -12,17 +12,24 @@ class PolicyFileTest(unittest.TestCase):
     def setUpClass(cls):
         cls.book = PolicyBook()
 
-    def test_47_clauses_with_unique_ids(self):
+    def test_102_clauses_with_unique_ids(self):
         ids = [c.id for c in self.book.clauses]
-        self.assertEqual(len(ids), 47)
-        self.assertEqual(len(set(ids)), 47)
+        self.assertEqual(len(ids), 102)
+        self.assertEqual(len(set(ids)), 102)
+
+    def test_every_clause_is_in_the_mapping_table_and_has_examples(self):
+        mapped = {i for ids in self.book._intents.values() for i in ids}
+        for clause in self.book.clauses:
+            self.assertIn(clause.id, mapped, clause.id)
+            self.assertTrue(clause.examples, f"{clause.id}에 '이런 문의에 쓰임'이 없습니다")
+            self.assertNotIn("이런 문의에 쓰임", clause.content, clause.id)
 
     def test_every_clause_has_a_known_label(self):
         for clause in self.book.clauses:
             self.assertIn(clause.label, ALLOWED_LABELS, clause.id)
 
-    def test_17_fictional_clauses(self):
-        self.assertEqual(sum(1 for c in self.book.clauses if c.label == "가상"), 17)
+    def test_4_fictional_clauses(self):
+        self.assertEqual(sorted(c.id for c in self.book.clauses if c.label == "가상"), ["GEN-07", "STL-02", "STL-04", "STL-05"])
 
     def test_caution_lines_are_kept_apart_from_content(self):
         pen06 = self.book.get("PEN-06")
@@ -34,20 +41,27 @@ class PolicyFileTest(unittest.TestCase):
         self.assertIn("약속", self.book.get("GEN-02").cautions[0])
 
     def test_legacy_flag(self):
-        for legacy_id in ("PKG-01", "PKG-02", "GEN-01", "SNK-02", "RET-01"):
-            self.assertTrue(self.book.get(legacy_id).legacy, legacy_id)
-        for current_id in ("PEN-01", "SNK-03", "BUY-01", "RFD-01", "DLV-01"):
+        self.assertEqual([c.id for c in self.book.clauses if c.legacy], ["SNK-08"])
+        for current_id in ("PEN-01", "SNK-03", "BUY-01", "RFD-01", "DLV-04", "PKG-01"):
             self.assertFalse(self.book.get(current_id).legacy, current_id)
 
     def test_table_content_is_kept(self):
         self.assertIn("찌그러짐", self.book.get("PKG-01").content)
         self.assertIn("30%", self.book.get("PKG-01").content)
+        self.assertIn("12.0cm", self.book.get("PKG-01").content)
+
+    def test_example_lines_are_searchable_but_not_content(self):
+        clause = self.book.get("PEN-06")
+        self.assertIn("소명하고 싶어요", clause.examples)
+        self.assertIn("소명하고 싶어요", clause.search_text)
+        self.assertNotIn("소명하고 싶어요", clause.content)
+        self.assertNotIn("examples", clause.to_dict())
 
     def test_every_label_has_candidates_in_the_mapping_table(self):
         for label in LABEL_TO_INTENT:
             self.assertTrue(self.book.candidates(label), label)
         settlement = [c.id for c in self.book.candidates("seller_settlement")]
-        self.assertEqual(settlement, ["STL-01", "STL-02", "STL-03", "STL-04", "STL-05"])
+        self.assertEqual(settlement[:7], [f"STL-0{n}" for n in range(1, 8)])
 
     def test_no_real_company_names(self):
         text = POLICY_PATH.read_text(encoding="utf-8")
@@ -105,8 +119,10 @@ class EvidenceTest(unittest.TestCase):
         self.assertEqual(self.book.find_evidence("buyer_delivery", "   "), [])
 
     def test_search_stays_inside_the_classified_label(self):
-        for clause, _ in self.book.scores("seller_settlement", "쿠폰 취소 환불 배송 박스"):
-            self.assertTrue(clause.id.startswith("STL-"), clause.id)
+        allowed = {c.id for c in self.book.candidates("seller_settlement")}
+        scored = self.book.scores("seller_settlement", "쿠폰 취소 환불 배송 박스")
+        self.assertEqual({c.id for c, _ in scored}, allowed)
+        self.assertNotIn("RFD-04", allowed)
 
     def test_higher_bar_finds_less(self):
         loose = self.book.find_evidence("buyer_cancel_refund", COUPON_TEXT, min_score=0.0)

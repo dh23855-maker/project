@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 MAX_BODY_LENGTH = 1000
 DEFAULT_THRESHOLD = 70
 AUTO_FAIL_NOTE = "자동 처리에 실패해 직접 작성으로 넘어갔습니다."
-BAD_CITATION_NOTE = "초안이 정책 문서에 없는 조항 번호를 근거로 삼아 직접 작성으로 넘어갔습니다."
+BAD_CITATION_NOTE = "초안이 규정 문서에 없는 조항 번호를 근거로 삼아 직접 작성으로 넘어갔습니다."
 CLASSIFY_FAIL_NOTE = "문의 종류를 분류하지 못했습니다. 문의 내용을 직접 확인해 주세요."
 
 
@@ -109,7 +109,7 @@ def available_actions(inquiry, has_draft):
 
 
 def get_detail(conn, policy, inquiry_id):
-    """문의 한 건과 초안, 근거 조항, 위험 표현 경고를 함께 돌려준다."""
+    """문의 한 건과 초안, 규정 문서, 위험 표현 경고를 함께 돌려준다."""
     inquiry = get_inquiry(conn, inquiry_id)
     if inquiry is None:
         return None
@@ -161,16 +161,16 @@ def insert_draft(conn, inquiry_id, draft_no, text, cited, uncovered_note=None):
 
 
 def evidence_label(label, confidence, threshold_percent):
-    """근거 조항을 찾을 때 쓸 문의 종류. 분류를 믿을 수 없으면 None(정책 전체에서 찾는다)."""
+    """규정 문서를 찾을 때 쓸 문의 종류. 분류를 믿을 수 없으면 None(정책 전체에서 찾는다)."""
     if label is None or confidence is None or is_low_confidence(confidence, threshold_percent):
         return None
     return label
 
 
 def prepare_initial_draft(policy, drafter, search_label, body):
-    """근거 조항을 찾아 첫 초안을 만든다. (초안 글, 근거 조항 번호, 근거에 없는 내용, 안내 문구)를 돌려준다.
+    """규정 문서를 찾아 첫 초안을 만든다. (초안 글, 규정 문서 번호, 근거에 없는 내용, 안내 문구)를 돌려준다.
 
-    근거 조항을 못 찾아도 초안은 쓴다 (근거 조항 번호는 빈 목록, 근거에 없는 내용이 채워진다).
+    규정 문서를 못 찾아도 초안은 쓴다 (규정 문서 번호는 빈 목록, 근거에 없는 내용이 채워진다).
     초안 자체를 만들 수 없을 때만 (None, None, None, 안내 문구) 이고, 그 문의는 '직접 작성'으로 간다.
     """
     clauses = [c for c, _ in policy.find_evidence(search_label, body)]
@@ -178,7 +178,7 @@ def prepare_initial_draft(policy, drafter, search_label, body):
         result = drafter.draft(body, clauses)
         cited = verify_citations(result.cited, [c.id for c in clauses], policy)
     except CitationError as e:
-        logger.warning("초안의 근거 조항 번호가 잘못되었습니다: %s", e)
+        logger.warning("초안의 규정 문서 번호가 잘못되었습니다: %s", e)
         return None, None, None, BAD_CITATION_NOTE
     except DraftError as e:
         logger.warning("초안 만들기에 실패했습니다: %s", e)
@@ -187,7 +187,7 @@ def prepare_initial_draft(policy, drafter, search_label, body):
 
 
 def create_inquiry(conn, classifier, policy, drafter, raw_body, agent_id=None, source="user"):
-    """문의를 저장하고 분류한 뒤, 모든 문의에 근거 조항을 찾아 초안을 붙인다.
+    """문의를 저장하고 분류한 뒤, 모든 문의에 규정 문서를 찾아 초안을 붙인다.
 
     확신도가 기준값보다 낮으면 초안은 쓰되 경고 문구를 남기고, 정책 전체에서 근거를 찾는다.
     분류나 초안 만들기가 실패해도 문의는 저장한다. 초안을 못 만들면 '직접 작성'으로 보낸다.

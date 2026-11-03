@@ -48,7 +48,7 @@ class DraftOut(BaseModel):
     draft_no: int
     content: str
     cited: list[str]
-    uncovered_note: str | None = None  # 근거 조항에는 없는 내용 (없으면 None)
+    uncovered_note: str | None = None  # 규정 문서에는 없는 내용 (없으면 None)
     created_at: datetime
 
 
@@ -66,7 +66,7 @@ class RiskWarning(BaseModel):
 
 
 class InquiryDetail(InquiryOut):
-    """문의 한 건: 초안, 근거 조항, 위험 표현 경고, 지금 누를 수 있는 버튼까지."""
+    """문의 한 건: 초안, 규정 문서, 위험 표현 경고, 지금 누를 수 있는 버튼까지."""
 
     drafts: list[DraftOut]
     current_draft: DraftOut | None

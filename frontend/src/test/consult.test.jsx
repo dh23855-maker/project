@@ -21,7 +21,7 @@ const detailArea = () => within(screen.getByRole('article'))
 const buttonNames = () => detailArea().queryAllByRole('button').map((b) => b.textContent)
 
 describe('상담 화면: 보기', () => {
-  it('문의 목록과 첫 문의의 분류 결과, 초안, 근거 조항을 한 화면에 보여준다', async () => {
+  it('문의 목록과 첫 문의의 분류 결과, 초안, 규정 문서를 한 화면에 보여준다', async () => {
     mockServer(baseRoutes())
     renderApp()
 
@@ -541,38 +541,38 @@ describe('받은편지함 정렬', () => {
   })
 })
 
-describe('근거 조항에는 없음', () => {
-  it('근거 조항이 하나도 없는 초안은 "근거 조항에는 없음"과 이유를 보여 준다', async () => {
-    const draft = { ...makeDraft(), cited: [], uncovered_note: '이 문의에 해당하는 내용이 근거 조항에는 없습니다.' }
+describe('규정 문서에는 없음', () => {
+  it('규정 문서가 하나도 없는 초안은 "규정 문서에는 없음"과 이유를 보여 준다', async () => {
+    const draft = { ...makeDraft(), cited: [], uncovered_note: '이 문의에 해당하는 내용이 규정 문서에는 없습니다.' }
     mockServer(baseRoutes(makeDetail({ drafts: [draft], current_draft: draft, evidence: [] })))
     renderApp()
     await screen.findByRole('heading', { name: '문의 #1' })
 
-    const section = within(screen.getByRole('region', { name: '근거 조항' }))
-    expect(section.getByText('근거 조항에는 없음')).toBeInTheDocument()
-    expect(section.getByText('이 문의에 해당하는 내용이 근거 조항에는 없습니다.')).toBeInTheDocument()
+    const section = within(screen.getByRole('region', { name: '규정 문서' }))
+    expect(section.getByText('규정 문서에는 없음')).toBeInTheDocument()
+    expect(section.getByText('이 문의에 해당하는 내용이 규정 문서에는 없습니다.')).toBeInTheDocument()
     expect(section.queryByText(/\[RFD-04\]/)).not.toBeInTheDocument()
     expect(detailArea().getByText(FIRST_DRAFT)).toBeInTheDocument() // 초안은 그대로 보인다
     expect(buttonNames()).toEqual(['승인', '수정', '재작성'])
   })
 
-  it('일부만 근거가 있으면 근거 조항과 함께 없는 내용을 보여 준다', async () => {
-    const draft = { ...makeDraft(), uncovered_note: '입금 예정일은 근거 조항에 없습니다.' }
+  it('일부만 근거가 있으면 규정 문서와 함께 없는 내용을 보여 준다', async () => {
+    const draft = { ...makeDraft(), uncovered_note: '입금 예정일은 규정 문서에 없습니다.' }
     mockServer(baseRoutes(makeDetail({ drafts: [draft], current_draft: draft })))
     renderApp()
     await screen.findByRole('heading', { name: '문의 #1' })
 
-    const section = within(screen.getByRole('region', { name: '근거 조항' }))
+    const section = within(screen.getByRole('region', { name: '규정 문서' }))
     expect(section.getByText(/\[RFD-04\]/)).toBeInTheDocument()
-    expect(section.getByText('근거 조항에는 없음')).toBeInTheDocument()
-    expect(section.getByText('입금 예정일은 근거 조항에 없습니다.')).toBeInTheDocument()
+    expect(section.getByText('규정 문서에는 없음')).toBeInTheDocument()
+    expect(section.getByText('입금 예정일은 규정 문서에 없습니다.')).toBeInTheDocument()
   })
 
-  it('근거 조항 안에서 모두 답한 초안에는 "근거 조항에는 없음"이 나오지 않는다', async () => {
+  it('규정 문서 안에서 모두 답한 초안에는 "규정 문서에는 없음"이 나오지 않는다', async () => {
     mockServer(baseRoutes())
     renderApp()
     await screen.findByRole('heading', { name: '문의 #1' })
-    expect(screen.queryByText('근거 조항에는 없음')).not.toBeInTheDocument()
+    expect(screen.queryByText('규정 문서에는 없음')).not.toBeInTheDocument()
   })
 
   it('확신도가 낮아도 초안이 나오고, 분류 경고 문구가 함께 보인다', async () => {

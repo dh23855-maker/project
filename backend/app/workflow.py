@@ -121,7 +121,7 @@ def rewrite(conn, policy, drafter, agent, inquiry_id, version):
     if first is None:
         raise WorkflowError(409, "재작성할 초안이 없습니다.")
 
-    # 첫 초안이 근거로 삼은 조항을 그대로 쓴다. 근거 조항이 없던 초안이면 처음과 같은 방식으로 다시 찾는다.
+    # 첫 초안이 근거로 삼은 조항을 그대로 쓴다. 규정 문서가 없던 초안이면 처음과 같은 방식으로 다시 찾는다.
     clauses = [policy.get(i) for i in first["cited_articles"] if policy.exists(i)]
     if not clauses:
         search_label = inq.evidence_label(row["predicted_label"], row["confidence"], inq.get_threshold(conn))

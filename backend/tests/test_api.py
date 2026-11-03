@@ -197,7 +197,7 @@ class ApiTest(ApiTestBase):
                 self.assertIsNone(item["auto_note"], item["body"])
             detail = client.get(f"/api/inquiries/{item['id']}").json()
             self.assertIsNotNone(detail["current_draft"], item["body"])
-            # 근거 조항이 없는 초안에는 반드시 '근거 조항에는 없음' 메모가 있다
+            # 규정 문서가 없는 초안에는 반드시 '규정 문서에는 없음' 메모가 있다
             if not detail["current_draft"]["cited"]:
                 self.assertTrue(detail["current_draft"]["uncovered_note"], item["body"])
         self.assertTrue(any(i["auto_note"] for i in items), "확신도가 낮은 문의가 시연에 있어야 합니다")

@@ -23,7 +23,7 @@ from ml.train import model_path, train
 COUPON_TEXT = "쿠폰 쓴 주문을 취소하면 쿠폰은 돌려받나요?"  # 취소·환불 문의, RFD-04와 매우 비슷
 FIRST_DRAFT = "안녕하세요, 고객님. (첫 초안) 문의하신 내용을 확인했습니다. 감사합니다."
 SECOND_DRAFT = "안녕하세요, 고객님. (재작성한 초안) 정책에 따라 안내드립니다. 감사합니다."
-PARTIAL_NOTE = "입금 예정일은 근거 조항에 없습니다."
+PARTIAL_NOTE = "입금 예정일은 규정 문서에 없습니다."
 
 
 class FakeDrafter:

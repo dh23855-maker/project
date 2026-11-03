@@ -1,8 +1,9 @@
-"""정책 문서 읽기와 근거 조항 찾기.
+"""규정 문서 읽기와 규정 문서 찾기.
 
-정책 문서(backend/policies/policy_clauses.md)는 `### [ID] 제목 [라벨]` 단위로 조항을 나눈다.
+규정 문서(backend/policies/policy_clauses.md)는 `### [ID] 제목 [라벨]` 단위로 조항을 나눈다.
 - 일반 줄과 표는 고객 안내의 근거가 되는 내용이다.
-- `- 응대 주의:` 줄은 초안을 쓸 때만 쓰는 내부 지침이다. 고객 화면의 근거 원문에는 넣지 않는다.
+- `- 응대 주의:` 줄은 초안을 쓸 때만 쓰는 내부 지침이다. 고객 화면의 규정 문서 원문에는 넣지 않는다.
+- `- 이런 문의에 쓰임:` 줄은 고객이 실제로 쓰는 말투의 예시 문장이다. 규정 문서를 찾을 때만 쓰고 원문·초안 재료에는 넣지 않는다.
 """
 import re
 from dataclasses import dataclass, field
@@ -15,7 +16,7 @@ from app.config import PROJECT_DIR
 
 POLICY_PATH = PROJECT_DIR / "backend" / "policies" / "policy_clauses.md"
 
-# 분류된 문의 종류 -> 정책 문서의 '의도 → 조항 매핑' 표에서 부르는 이름
+# 분류된 문의 종류 -> 규정 문서의 '의도 → 조항 매핑' 표에서 부르는 이름
 LABEL_TO_INTENT = {
     "buyer_delivery": "구매자-배송",
     "buyer_inspection_result": "구매자-검수 결과",
@@ -29,11 +30,12 @@ LABEL_TO_INTENT = {
 MAX_EVIDENCE = 3
 # 모델에게 보여줄 후보 조항의 최소 유사도. 글자 유사도만으로는 '답이 있는 문의'와 '엉뚱한 조항에 걸린 문의'를
 # 가르기 어렵다. 그래서 이 기준은 확실히 상관없는 조항만 걸러 내는 낮은 값으로 두고(0.12는 답이 있는 문의 일부를
-# 놓쳤다), 후보 조항 중 실제로 쓸 것과 "근거 조항에는 없음"의 판단은 모델(drafting.py의 cited, uncovered)에게
+# 놓쳤다), 후보 조항 중 실제로 쓸 것과 "규정 문서에는 없음"의 판단은 모델(drafting.py의 cited, uncovered)에게
 # 맡기고, 돌려받은 번호는 프로그램이 다시 확인한다.
 MIN_SIMILARITY = 0.06
 
 CAUTION_PREFIX = "- 응대 주의:"
+EXAMPLE_PREFIX = "- 이런 문의에 쓰임:"
 _HEADER = re.compile(r"^### \[(?P<id>[A-Z]+-\d+)\] (?P<title>.*?)\s*\[(?P<label>[^\]]+)\]\s*$")
 _ID_RANGE = re.compile(r"([A-Z]+)-(\d+)(?:~(\d+))?")
 
@@ -43,8 +45,9 @@ class Clause:
     id: str
     title: str
     label: str
-    content: str  # 고객 안내의 근거가 되는 내용 (응대 주의 줄은 뺀 것)
+    content: str  # 고객 안내의 근거가 되는 내용 (응대 주의·이런 문의에 쓰임 줄은 뺀 것)
     cautions: tuple = field(default_factory=tuple)  # 응대 주의 줄들 (접두어 제거)
+    examples: tuple = field(default_factory=tuple)  # 이런 문의에 쓰임: 고객 말투의 예시 문장들
 
     @property
     def legacy(self):
@@ -53,7 +56,7 @@ class Clause:
 
     @property
     def search_text(self):
-        return f"{self.title}\n{self.content}"
+        return "\n".join([self.title, self.content, *self.examples])
 
     def to_dict(self):
         return {
@@ -66,7 +69,7 @@ class Clause:
 
 
 class PolicyError(ValueError):
-    """정책 문서 형식이 틀렸을 때."""
+    """규정 문서 형식이 틀렸을 때."""
 
 
 def _expand_ids(text):
@@ -79,7 +82,7 @@ def _expand_ids(text):
 
 
 def parse_policy(text):
-    """정책 문서 전체를 읽어 (조항 목록, {의도: [조항 ID]})를 돌려준다."""
+    """규정 문서 전체를 읽어 (조항 목록, {의도: [조항 ID]})를 돌려준다."""
     lines = text.splitlines()
 
     # 1) 의도 -> 조항 매핑 표
@@ -104,10 +107,15 @@ def parse_policy(text):
             return
         body = [ln for ln in current["body"]]
         cautions = tuple(ln[len(CAUTION_PREFIX):].strip() for ln in body if ln.startswith(CAUTION_PREFIX))
-        content = "\n".join(ln for ln in body if not ln.startswith(CAUTION_PREFIX)).strip()
+        examples = tuple(
+            e.strip() for ln in body if ln.startswith(EXAMPLE_PREFIX) for e in ln[len(EXAMPLE_PREFIX):].split("/") if e.strip()
+        )
+        content = "\n".join(
+            ln for ln in body if not ln.startswith(CAUTION_PREFIX) and not ln.startswith(EXAMPLE_PREFIX)
+        ).strip()
         if not content:
             raise PolicyError(f"조항 {current['id']}에 내용이 없습니다.")
-        clauses.append(Clause(current["id"], current["title"], current["label"], content, cautions))
+        clauses.append(Clause(current["id"], current["title"], current["label"], content, cautions, examples))
 
     for number, line in enumerate(lines, start=1):
         header = _HEADER.match(line)
@@ -135,7 +143,7 @@ def parse_policy(text):
 
 
 class PolicyBook:
-    """정책 조항 모음. 조항 찾기와 번호 확인을 맡는다."""
+    """규정 문서 모음. 조항 찾기와 번호 확인을 맡는다."""
 
     def __init__(self, text=None, path=POLICY_PATH):
         if text is None:

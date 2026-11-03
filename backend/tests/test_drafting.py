@@ -64,7 +64,7 @@ class VerifyCitationsTest(unittest.TestCase):
         )
 
     def test_none_cited_is_allowed(self):
-        # 근거 조항에는 없는 문의: 번호가 하나도 없어도 된다
+        # 규정 문서에는 없는 문의: 번호가 하나도 없어도 된다
         self.assertEqual(verify_citations([], ["RFD-04"], self.policy), [])
         self.assertEqual(verify_citations([], [], self.policy), [])
 
@@ -73,7 +73,7 @@ class VerifyCitationsTest(unittest.TestCase):
             verify_citations(["RFD-04"], [], self.policy)
 
     def test_clause_that_does_not_exist_is_rejected(self):
-        with self.assertRaisesRegex(CitationError, "정책 문서에 없는"):
+        with self.assertRaisesRegex(CitationError, "규정 문서에 없는"):
             verify_citations(["RFD-04", "ZZZ-99"], ["RFD-04"], self.policy)
 
     def test_existing_but_not_provided_is_rejected(self):
@@ -90,11 +90,11 @@ class PromptTest(unittest.TestCase):
         cls.policy = PolicyBook()
 
     def test_message_carries_inquiry_clauses_and_cautions(self):
-        clauses = [self.policy.get("GEN-02"), self.policy.get("PKG-01")]
+        clauses = [self.policy.get("GEN-02"), self.policy.get("SNK-08")]
         message = build_user_message("가품 같아요", clauses)
         self.assertIn("<<<\n가품 같아요\n>>>", message)
         self.assertIn("[GEN-02]", message)
-        self.assertIn("[PKG-01]", message)
+        self.assertIn("[SNK-08]", message)
         self.assertIn("응대 주의:", message)
         self.assertIn("라벨: 구버전", message)
         self.assertNotIn("[이전 초안]", message)

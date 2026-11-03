@@ -75,7 +75,7 @@ class WorkflowTest(ApiTestBase):
         evidence = inquiry["evidence"]
         self.assertEqual([e["id"] for e in evidence], cited)
         self.assertFalse(inquiry["legacy_only"])
-        for shown in evidence:  # 화면에 보이는 근거 번호·제목·원문은 정책 문서와 똑같다
+        for shown in evidence:  # 화면에 보이는 근거 번호·제목·원문은 규정 문서와 똑같다
             clause = self.policy.get(shown["id"])
             self.assertEqual(shown["title"], clause.title)
             self.assertEqual(shown["content"], clause.content)
@@ -138,7 +138,7 @@ class WorkflowTest(ApiTestBase):
     def test_drafter_problems_send_the_inquiry_to_manual(self):
         cases = {
             "error": service.AUTO_FAIL_NOTE,
-            "bad_id": service.BAD_CITATION_NOTE,  # 정책 문서에 없는 조항 번호
+            "bad_id": service.BAD_CITATION_NOTE,  # 규정 문서에 없는 조항 번호
             "not_provided": service.BAD_CITATION_NOTE,  # 있는 번호지만 제공하지 않은 조항
         }
         kim = self.login("kim")
@@ -280,7 +280,7 @@ class WorkflowTest(ApiTestBase):
 
         call = self.drafter.calls[-1]
         self.assertEqual(call["avoid"], FIRST_DRAFT)  # 이전 초안과 다르게 쓰라고 지시
-        self.assertEqual(call["clauses"], first_clauses)  # 첫 초안과 같은 근거 조항으로 쓴다
+        self.assertEqual(call["clauses"], first_clauses)  # 첫 초안과 같은 규정 문서으로 쓴다
 
         (log,) = self.logs_for(kim, inquiry["id"], action="rewrite")
         self.assertEqual(log["draft_text"], FIRST_DRAFT)
@@ -297,7 +297,7 @@ class WorkflowTest(ApiTestBase):
         self.drafter.mode = "partial"
         second = self.act(kim, inquiry, "rewrite").json()
         self.assertEqual(second["current_draft"]["draft_no"], 2)
-        self.assertTrue(second["current_draft"]["cited"])  # 다시 찾은 근거 조항
+        self.assertTrue(second["current_draft"]["cited"])  # 다시 찾은 규정 문서
         self.assertEqual(second["current_draft"]["uncovered_note"], PARTIAL_NOTE)
         self.assertEqual(second["drafts"][0]["uncovered_note"], NO_COVERAGE_NOTE)  # 첫 초안은 그대로
 
@@ -422,23 +422,23 @@ class WorkflowTest(ApiTestBase):
     def test_legacy_only_evidence_is_flagged(self):
         kim = self.login("kim")
         self.classifier.label = "buyer_inspection_result"
-        body = "박스가 많이 찌그러지고 구겨졌어요 박스 찢어짐도 있어요"
-        self.drafter.cite = lambda clauses: ("PKG-01",)
+        body = "신발에서 곰팡이 냄새가 심하게 나요 담배 냄새도 나요"
+        self.drafter.cite = lambda clauses: ("SNK-08",)
         inquiry = self.create(kim, body)
         self.assertEqual(inquiry["status"], "awaiting_approval", inquiry["auto_note"])
         self.assertTrue(inquiry["legacy_only"])
         self.assertTrue(all(e["legacy"] for e in inquiry["evidence"]))
 
-        # 현행 조항(HOLD-01)과 구버전 조항(PKG-01)이 함께 근거이면 경고하지 않는다
-        self.drafter.cite = lambda clauses: ("HOLD-01", "PKG-01")
-        mixed = self.create(kim, "검수 보류 사유를 보고 구매 여부를 선택했어요 박스 찢어짐 기준이 어떻게 되나요")
+        # 현행 조항(HOLD-01)과 구버전 조항(SNK-08)이 함께 근거이면 경고하지 않는다
+        self.drafter.cite = lambda clauses: ("HOLD-01", "SNK-08")
+        mixed = self.create(kim, "검수 보류 사유를 보고 구매 여부를 선택했어요 곰팡이 냄새 담배 냄새가 나는 신발이에요")
         self.assertEqual(mixed["status"], "awaiting_approval", mixed["auto_note"])
-        self.assertEqual({e["id"] for e in mixed["evidence"]}, {"HOLD-01", "PKG-01"})
+        self.assertEqual({e["id"] for e in mixed["evidence"]}, {"HOLD-01", "SNK-08"})
         self.assertFalse(mixed["legacy_only"])
 
         # 현행 조항만 근거여도 경고하지 않는다
         self.drafter.cite = lambda clauses: ("HOLD-01",)
-        current = self.create(kim, "검수 보류 사유를 보고 구매 여부를 선택했어요 박스 찢어짐 기준이 어떻게 되나요")
+        current = self.create(kim, "검수 보류 사유를 보고 구매 여부를 선택했어요 곰팡이 냄새 담배 냄새가 나는 신발이에요")
         self.assertFalse(current["legacy_only"])
 
     # --- 작업 기록 --------------------------------------------------------------
