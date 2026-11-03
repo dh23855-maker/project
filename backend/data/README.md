@@ -9,12 +9,14 @@
 | `train/train.csv` | 학습용 문의 300개 (처음 만든 것) | Claude | 분류 모델 학습 |
 | `train/train_extra.csv` | 학습용 문의 보강분 (구어체, 긴 문장, 돌려 말하는 문의 등) | Claude | 분류 모델 학습 |
 | `eval/eval.csv` | 평가용 문의 140개 (정답 포함) | Gemini | 모델 시험 (학습에 쓰지 않음) |
+| `eval/retrieval_gold.csv` | 평가용 문의 140개 각각에 "답하려면 필요한 규정 조항"을 붙인 정답 표 | Claude | 규정 문서 찾는 방식 비교 (분류 학습에는 쓰지 않음) |
 | `eval/eval_prompt.md` | 평가용 문의를 만들 때 쓴 프롬프트 | Claude | 기록 |
 
 ## 파일 형식
 
 - `train.csv`, `train_extra.csv` : `text,label` (학습할 때는 두 파일을 합쳐서 씁니다)
 - `eval.csv` : `text,label,difficulty` (difficulty는 easy / medium / hard)
+- `retrieval_gold.csv` : `eval_row,text,label,difficulty,gold,coverage`. `gold`는 정답 조항 번호를 공백으로 구분(맞는 것이 하나라도 상위에 나오면 성공), `coverage`는 full(규정 문서가 충분히 답함 90개) / partial(일부만 답함 44개) / none(관련 규정 없음 6개, gold 비어 있음)
 - 인코딩은 UTF-8입니다.
 
 ## 정답(label) 7가지
