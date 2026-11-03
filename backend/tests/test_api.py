@@ -21,18 +21,18 @@ NOT_LOGGED_IN = "로그인이 필요합니다."
 
 
 
-class DecideStatusTest(unittest.TestCase):
-    def test_at_or_above_threshold_goes_to_approval(self):
-        self.assertEqual(service.decide_status(0.70, 70), "awaiting_approval")
-        self.assertEqual(service.decide_status(0.95, 70), "awaiting_approval")
+class LowConfidenceTest(unittest.TestCase):
+    def test_below_threshold_is_low(self):
+        self.assertTrue(service.is_low_confidence(0.699, 70))
+        self.assertTrue(service.is_low_confidence(0.2, 70))
 
-    def test_below_threshold_goes_to_manual(self):
-        self.assertEqual(service.decide_status(0.699, 70), "manual")
-        self.assertEqual(service.decide_status(0.2, 70), "manual")
+    def test_at_or_above_threshold_is_not_low(self):
+        self.assertFalse(service.is_low_confidence(0.70, 70))
+        self.assertFalse(service.is_low_confidence(0.95, 70))
 
     def test_float_rounding_edge(self):
-        # 0.29 * 100 은 28.999999999999996 이 되는데, 29% 기준값이면 승인 대기여야 한다.
-        self.assertEqual(service.decide_status(0.29, 29), "awaiting_approval")
+        # 0.29 * 100 은 28.999999999999996 이 되는데, 29% 기준값이면 낮은 것이 아니다.
+        self.assertFalse(service.is_low_confidence(0.29, 29))
 
 
 class ValidateBodyTest(unittest.TestCase):
@@ -189,16 +189,18 @@ class ApiTest(ApiTestBase):
         items = [i for i in client.get("/api/inquiries").json() if i["source"] == "seed"]
         for item in items:
             self.assertIsNotNone(item["predicted_label_ko"])
+            # 모든 문의에 초안이 붙어 승인 대기가 된다. 확신도가 낮으면 경고 문구만 더 붙는다.
+            self.assertEqual(item["status"], "awaiting_approval", item["body"])
             if item["confidence_percent"] < 70:
-                self.assertEqual(item["status"], "manual", item["body"])  # 확신도가 낮으면 직접 작성
-            if item["status"] == "awaiting_approval":
-                # 승인 대기는 확신도가 기준 이상이고, 근거를 찾아 초안까지 붙은 문의다
-                self.assertGreaterEqual(item["confidence_percent"], 70)
-                detail = client.get(f"/api/inquiries/{item['id']}").json()
-                self.assertIsNotNone(detail["current_draft"], item["body"])
-                self.assertTrue(detail["evidence"], item["body"])
-        statuses = {i["status"] for i in items}
-        self.assertEqual(statuses, {"awaiting_approval", "manual"}, "승인 대기와 직접 작성이 모두 있어야 시연이 됩니다")
+                self.assertEqual(item["auto_note"], service.low_confidence_note(70), item["body"])
+            else:
+                self.assertIsNone(item["auto_note"], item["body"])
+            detail = client.get(f"/api/inquiries/{item['id']}").json()
+            self.assertIsNotNone(detail["current_draft"], item["body"])
+            # 근거 조항이 없는 초안에는 반드시 '근거 조항에는 없음' 메모가 있다
+            if not detail["current_draft"]["cited"]:
+                self.assertTrue(detail["current_draft"]["uncovered_note"], item["body"])
+        self.assertTrue(any(i["auto_note"] for i in items), "확신도가 낮은 문의가 시연에 있어야 합니다")
 
     def test_create_inquiry_classifies_and_every_agent_can_see_it(self):
         kim = self.login("kim")
@@ -212,7 +214,7 @@ class ApiTest(ApiTestBase):
         self.assertGreater(created["confidence_percent"], 0)
         self.assertEqual(created["source"], "user")
         self.assertEqual(created["created_by_name"], "김상담")
-        self.assertIn(created["status"], ("awaiting_approval", "manual"))
+        self.assertEqual(created["status"], "awaiting_approval")
 
         # 다른 상담사에게도 보인다
         park = self.login("park")
@@ -242,21 +244,24 @@ class ApiTest(ApiTestBase):
     def test_unknown_inquiry_is_404(self):
         self.assertEqual(self.login().get("/api/inquiries/99999999").status_code, 404)
 
-    def test_threshold_decides_the_status(self):
+    def test_threshold_only_decides_the_warning_not_the_status(self):
         body = "출고 알림이 왔는데 택배 송장 조회가 안 돼요 배송 조회가 언제부터 되나요"
         client = self.login()
         try:
-            self.set_threshold(100)  # 확신도가 100%일 수는 없으므로 모두 직접 작성
+            self.set_threshold(100)  # 확신도가 100%일 수는 없으므로 모두 '확신도 낮음'
             high = client.post("/api/inquiries", json={"body": body}).json()
-            self.assertEqual(high["status"], "manual")
-            self.set_threshold(0)  # 확신도 조건은 모두 통과. 근거가 있으면 승인 대기
+            self.assertEqual(high["status"], "awaiting_approval", high["auto_note"])  # 그래도 초안을 쓴다
+            self.assertEqual(high["auto_note"], service.low_confidence_note(100))
+            self.assertIsNotNone(high["current_draft"])
+            self.set_threshold(0)  # 확신도 조건은 모두 통과. 경고 없음
             low = client.post("/api/inquiries", json={"body": body}).json()
             self.assertEqual(low["predicted_label"], "buyer_delivery")
             self.assertEqual(low["status"], "awaiting_approval", low["auto_note"])
+            self.assertIsNone(low["auto_note"])
         finally:
             self.set_threshold(70)
 
-    def test_classifier_failure_still_saves_the_inquiry_as_manual(self):
+    def test_classifier_failure_still_saves_the_inquiry_with_a_draft(self):
         class Broken:
             def classify(self, text):
                 raise RuntimeError("모델 오류")
@@ -270,10 +275,11 @@ class ApiTest(ApiTestBase):
             self.app.state.classifier = original
         self.assertEqual(response.status_code, 201)
         created = response.json()
-        self.assertEqual(created["status"], "manual")
+        self.assertEqual(created["status"], "awaiting_approval")  # 분류를 못 해도 초안은 쓴다
+        self.assertIsNotNone(created["current_draft"])
         self.assertIsNone(created["predicted_label"])
         self.assertIsNone(created["confidence_percent"])
-        self.assertEqual(created["auto_note"], service.AUTO_FAIL_NOTE)
+        self.assertEqual(created["auto_note"], service.CLASSIFY_FAIL_NOTE)
         self.assertEqual(self.login("lee").get(f"/api/inquiries/{created['id']}").status_code, 200)
 
 

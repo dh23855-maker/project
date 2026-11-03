@@ -48,6 +48,7 @@ class DraftOut(BaseModel):
     draft_no: int
     content: str
     cited: list[str]
+    uncovered_note: str | None = None  # 근거 조항에는 없는 내용 (없으면 None)
     created_at: datetime
 
 

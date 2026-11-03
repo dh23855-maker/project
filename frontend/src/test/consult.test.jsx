@@ -27,7 +27,7 @@ describe('상담 화면: 보기', () => {
 
     expect(await screen.findByRole('heading', { name: '문의 #1' })).toBeInTheDocument()
     const list = screen.getByRole('list', { name: '문의 목록' })
-    expect(within(list).getByText('승인 대기')).toBeInTheDocument()
+    expect(within(list).getAllByText('승인 대기')).toHaveLength(2) // 묶음 제목 + 문의 상태
     expect(within(list).getByText(/취소·환불 · 97.9%/)).toBeInTheDocument()
 
     expect(detailArea().getByText('취소·환불 (확신도 97.9%)')).toBeInTheDocument()
@@ -464,5 +464,124 @@ describe('상담 화면: 새 문의 입력', () => {
     await userEvent.click(screen.getByRole('button', { name: '등록' }))
     expect(await screen.findByText('문의 내용을 입력하세요.')).toBeInTheDocument()
     expect(server.called('POST', '/api/inquiries')).toHaveLength(0)
+  })
+})
+
+describe('받은편지함 정렬', () => {
+  const item = (id, status, createdAt, body) =>
+    toListItem(makeDetail({ id, status, status_ko: status, created_at: createdAt, body }))
+  // 서버는 최신 문의부터 돌려준다
+  const mixed = [
+    item(5, 'done', '2026-11-02T13:00:00+09:00', '완료된 최신 문의'),
+    item(4, 'awaiting_approval', '2026-11-02T12:00:00+09:00', '대기 중 나중에 온 문의'),
+    item(3, 'manual', '2026-11-02T11:00:00+09:00', '직접 작성할 문의'),
+    item(2, 'awaiting_approval', '2026-11-02T10:00:00+09:00', '대기 중 먼저 온 문의'),
+    item(1, 'done', '2026-11-02T09:00:00+09:00', '완료된 오래된 문의'),
+  ]
+  const setup = () =>
+    mockServer({
+      'GET /api/auth/me': { id: 1, username: 'kim', display_name: '김상담' },
+      'GET /api/inquiries': mixed,
+      'GET /api/inquiries/4': makeDetail({ id: 4 }),
+    })
+  const order = () =>
+    within(screen.getByRole('list', { name: '문의 목록' }))
+      .getAllByRole('button')
+      .map((b) => b.querySelector('.inquiry-text').textContent)
+
+  it('처음에는 상태별로 모아 보여 주고, 묶음마다 제목과 건수가 있다', async () => {
+    setup()
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #4' })
+    expect(order()).toEqual([
+      '대기 중 나중에 온 문의',
+      '대기 중 먼저 온 문의',
+      '직접 작성할 문의',
+      '완료된 최신 문의',
+      '완료된 오래된 문의',
+    ])
+    const heads = Array.from(document.querySelectorAll('.group-head')).map((el) => el.textContent)
+    expect(heads).toEqual(['승인 대기 2건', '직접 작성 1건', '처리 완료 2건'])
+    expect(screen.getByLabelText('정렬')).toHaveValue('status')
+  })
+
+  it('최신순과 오래된순으로 바꾸면 묶음 제목 없이 날짜순으로 보여 준다', async () => {
+    setup()
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #4' })
+
+    await userEvent.selectOptions(screen.getByLabelText('정렬'), 'newest')
+    expect(order()).toEqual([
+      '완료된 최신 문의',
+      '대기 중 나중에 온 문의',
+      '직접 작성할 문의',
+      '대기 중 먼저 온 문의',
+      '완료된 오래된 문의',
+    ])
+    expect(document.querySelectorAll('.group-head')).toHaveLength(0)
+
+    await userEvent.selectOptions(screen.getByLabelText('정렬'), 'oldest')
+    expect(order()).toEqual([
+      '완료된 오래된 문의',
+      '대기 중 먼저 온 문의',
+      '직접 작성할 문의',
+      '대기 중 나중에 온 문의',
+      '완료된 최신 문의',
+    ])
+  })
+
+  it('정렬을 바꿔도 보고 있던 문의는 그대로 선택되어 있다', async () => {
+    setup()
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #4' })
+    await userEvent.selectOptions(screen.getByLabelText('정렬'), 'oldest')
+    expect(screen.getByRole('heading', { name: '문의 #4' })).toBeInTheDocument()
+    const selected = within(screen.getByRole('list', { name: '문의 목록' })).getByText('대기 중 나중에 온 문의')
+    expect(selected.closest('button')).toHaveAttribute('aria-current', 'true')
+  })
+})
+
+describe('근거 조항에는 없음', () => {
+  it('근거 조항이 하나도 없는 초안은 "근거 조항에는 없음"과 이유를 보여 준다', async () => {
+    const draft = { ...makeDraft(), cited: [], uncovered_note: '이 문의에 해당하는 내용이 근거 조항에는 없습니다.' }
+    mockServer(baseRoutes(makeDetail({ drafts: [draft], current_draft: draft, evidence: [] })))
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #1' })
+
+    const section = within(screen.getByRole('region', { name: '근거 조항' }))
+    expect(section.getByText('근거 조항에는 없음')).toBeInTheDocument()
+    expect(section.getByText('이 문의에 해당하는 내용이 근거 조항에는 없습니다.')).toBeInTheDocument()
+    expect(section.queryByText(/\[RFD-04\]/)).not.toBeInTheDocument()
+    expect(detailArea().getByText(FIRST_DRAFT)).toBeInTheDocument() // 초안은 그대로 보인다
+    expect(buttonNames()).toEqual(['승인', '수정', '재작성'])
+  })
+
+  it('일부만 근거가 있으면 근거 조항과 함께 없는 내용을 보여 준다', async () => {
+    const draft = { ...makeDraft(), uncovered_note: '입금 예정일은 근거 조항에 없습니다.' }
+    mockServer(baseRoutes(makeDetail({ drafts: [draft], current_draft: draft })))
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #1' })
+
+    const section = within(screen.getByRole('region', { name: '근거 조항' }))
+    expect(section.getByText(/\[RFD-04\]/)).toBeInTheDocument()
+    expect(section.getByText('근거 조항에는 없음')).toBeInTheDocument()
+    expect(section.getByText('입금 예정일은 근거 조항에 없습니다.')).toBeInTheDocument()
+  })
+
+  it('근거 조항 안에서 모두 답한 초안에는 "근거 조항에는 없음"이 나오지 않는다', async () => {
+    mockServer(baseRoutes())
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #1' })
+    expect(screen.queryByText('근거 조항에는 없음')).not.toBeInTheDocument()
+  })
+
+  it('확신도가 낮아도 초안이 나오고, 분류 경고 문구가 함께 보인다', async () => {
+    const note = '분류 확신도가 기준값(70%)보다 낮습니다. 문의 종류가 맞는지 먼저 확인해 주세요.'
+    mockServer(baseRoutes(makeDetail({ confidence_percent: 41.2, auto_note: note })))
+    renderApp()
+    await screen.findByRole('heading', { name: '문의 #1' })
+    expect(detailArea().getByText(note)).toBeInTheDocument()
+    expect(detailArea().getByText(FIRST_DRAFT)).toBeInTheDocument()
+    expect(buttonNames()).toEqual(['승인', '수정', '재작성'])
   })
 })

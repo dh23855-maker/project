@@ -13,7 +13,7 @@ from psycopg.rows import dict_row
 
 from app.classifier import Classifier
 from app.config import load_settings
-from app.drafting import DraftError, DraftResult
+from app.drafting import NO_COVERAGE_NOTE, DraftError, DraftResult
 from app.main import create_app
 from app.migrate import apply_migrations
 from app.policy import PolicyBook
@@ -23,13 +23,14 @@ from ml.train import model_path, train
 COUPON_TEXT = "쿠폰 쓴 주문을 취소하면 쿠폰은 돌려받나요?"  # 취소·환불 문의, RFD-04와 매우 비슷
 FIRST_DRAFT = "안녕하세요, 고객님. (첫 초안) 문의하신 내용을 확인했습니다. 감사합니다."
 SECOND_DRAFT = "안녕하세요, 고객님. (재작성한 초안) 정책에 따라 안내드립니다. 감사합니다."
+PARTIAL_NOTE = "입금 예정일은 근거 조항에 없습니다."
 
 
 class FakeDrafter:
     """OpenAI 대신 쓰는 가짜 초안 작성기. mode로 여러 상황을 흉내 낸다."""
 
     def __init__(self):
-        self.mode = "ok"  # ok / error / unanswerable / bad_id / not_provided
+        self.mode = "ok"  # ok / error / no_coverage / partial / bad_id / not_provided
         self.text = None  # 직접 정하면 이 글을 초안으로 쓴다
         self.cite = None  # 함수(clauses) -> 조항 번호 튜플. 없으면 첫 조항
         self.calls = []
@@ -38,16 +39,19 @@ class FakeDrafter:
         self.calls.append({"text": inquiry_text, "clauses": [c.id for c in clauses], "avoid": avoid})
         if self.mode == "error":
             raise DraftError("가짜 오류")
-        if self.mode == "unanswerable":
-            return None
+        if self.mode == "no_coverage":  # 조항을 하나도 쓰지 않은 초안
+            return DraftResult(FIRST_DRAFT, (), NO_COVERAGE_NOTE)
         if self.mode == "bad_id":
             return DraftResult(FIRST_DRAFT, ("ZZZ-99",))
         if self.mode == "not_provided":
             outside = "GEN-05" if "GEN-05" not in [c.id for c in clauses] else "STO-01"
             return DraftResult(FIRST_DRAFT, (outside,))
         text = self.text or (SECOND_DRAFT if avoid else FIRST_DRAFT)
+        if not clauses:  # 실제 모델처럼, 조항이 없으면 근거 없이 쓴다
+            return DraftResult(text, (), NO_COVERAGE_NOTE)
         cited = self.cite(clauses) if self.cite else (clauses[0].id,)
-        return DraftResult(text, tuple(cited))
+        uncovered = PARTIAL_NOTE if self.mode == "partial" else ""
+        return DraftResult(text, tuple(cited), uncovered)
 
 
 class StubClassifier:

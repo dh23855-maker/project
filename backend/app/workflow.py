@@ -30,7 +30,7 @@ class WorkflowError(Exception):
 
 def _lock(conn, policy, inquiry_id, version):
     row = conn.execute(
-        "SELECT id, status, version, rewrite_count, body, predicted_label FROM inquiries"
+        "SELECT id, status, version, rewrite_count, body, predicted_label, confidence FROM inquiries"
         " WHERE id = %s FOR UPDATE",
         (inquiry_id,),
     ).fetchone()
@@ -121,23 +121,20 @@ def rewrite(conn, policy, drafter, agent, inquiry_id, version):
     if first is None:
         raise WorkflowError(409, "재작성할 초안이 없습니다.")
 
-    # 첫 초안이 근거로 삼은 조항을 그대로 쓴다. 없어졌거나 하나도 없으면 다시 찾는다.
+    # 첫 초안이 근거로 삼은 조항을 그대로 쓴다. 근거 조항이 없던 초안이면 처음과 같은 방식으로 다시 찾는다.
     clauses = [policy.get(i) for i in first["cited_articles"] if policy.exists(i)]
     if not clauses:
-        clauses = [c for c, _ in policy.find_evidence(row["predicted_label"], row["body"])]
-    if not clauses:
-        raise WorkflowError(502, REWRITE_FAIL_MESSAGE)
+        search_label = inq.evidence_label(row["predicted_label"], row["confidence"], inq.get_threshold(conn))
+        clauses = [c for c, _ in policy.find_evidence(search_label, row["body"])]
 
     try:
         result = drafter.draft(row["body"], clauses, avoid=first["content"])
-        if result is None:
-            raise DraftError("모델이 조항만으로는 답할 수 없다고 판단했습니다.")
         cited = verify_citations(result.cited, [c.id for c in clauses], policy)
     except DraftError as e:
         logger.warning("재작성에 실패했습니다: %s", e)
         raise WorkflowError(502, REWRITE_FAIL_MESSAGE) from e
 
-    inq.insert_draft(conn, inquiry_id, 2, result.text, cited)
+    inq.insert_draft(conn, inquiry_id, 2, result.text, cited, result.uncovered_note or None)
     conn.execute(
         "UPDATE inquiries SET rewrite_count = 1, version = version + 1, updated_at = now() WHERE id = %s",
         (inquiry_id,),

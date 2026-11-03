@@ -29,8 +29,8 @@ LABEL_TO_INTENT = {
 MAX_EVIDENCE = 3
 # 모델에게 보여줄 후보 조항의 최소 유사도. 글자 유사도만으로는 '답이 있는 문의'와 '엉뚱한 조항에 걸린 문의'를
 # 가르기 어렵다. 그래서 이 기준은 확실히 상관없는 조항만 걸러 내는 낮은 값으로 두고(0.12는 답이 있는 문의 일부를
-# 놓쳤다), 후보로 "이 조항들로 답할 수 있는가"의 마지막 판단은 모델(drafting.py의 answerable)에게 맡긴다.
-# 정책에 없는 질문 15개로 시험했을 때 엉뚱한 초안은 0개였다.
+# 놓쳤다), 후보 조항 중 실제로 쓸 것과 "근거 조항에는 없음"의 판단은 모델(drafting.py의 cited, uncovered)에게
+# 맡기고, 돌려받은 번호는 프로그램이 다시 확인한다.
 MIN_SIMILARITY = 0.06
 
 CAUTION_PREFIX = "- 응대 주의:"
@@ -165,8 +165,11 @@ class PolicyBook:
         return [self._by_id[i] for i in self._intents.get(intent, [])]
 
     def scores(self, label, text):
-        """후보 조항마다 문의와의 내용 유사도 (높은 순)."""
-        candidates = self.candidates(label)
+        """후보 조항마다 문의와의 내용 유사도 (높은 순).
+
+        label이 None이면 분류를 믿을 수 없는 문의이므로 정책 전체를 후보로 삼는다.
+        """
+        candidates = self.clauses if label is None else self.candidates(label)
         if not candidates or not text.strip():
             return []
         query = self._vectorizer.transform([text])

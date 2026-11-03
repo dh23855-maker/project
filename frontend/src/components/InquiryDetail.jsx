@@ -76,7 +76,11 @@ export default function InquiryDetail({ detail, busyText, handlers }) {
             )}
           </section>
 
-          <EvidenceList evidence={detail.evidence} legacyOnly={detail.legacy_only} />
+          <EvidenceList
+            evidence={detail.evidence}
+            legacyOnly={detail.legacy_only}
+            uncoveredNote={draft.uncovered_note}
+          />
 
           {!editing && (
             <div className="button-row sticky">
@@ -142,7 +146,11 @@ export default function InquiryDetail({ detail, busyText, handlers }) {
             )}
           </section>
 
-          <EvidenceList evidence={detail.evidence} legacyOnly={detail.legacy_only} />
+          <EvidenceList
+            evidence={detail.evidence}
+            legacyOnly={detail.legacy_only}
+            uncoveredNote={draft?.uncovered_note}
+          />
 
           {!editing && can('reedit') && (
             <div className="button-row sticky">

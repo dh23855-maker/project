@@ -12,8 +12,12 @@ logger = logging.getLogger(__name__)
 MAX_BODY_LENGTH = 1000
 DEFAULT_THRESHOLD = 70
 AUTO_FAIL_NOTE = "자동 처리에 실패해 직접 작성으로 넘어갔습니다."
-NO_EVIDENCE_NOTE = "정책에서 근거를 찾지 못해 직접 작성으로 넘어갔습니다."
 BAD_CITATION_NOTE = "초안이 정책 문서에 없는 조항 번호를 근거로 삼아 직접 작성으로 넘어갔습니다."
+CLASSIFY_FAIL_NOTE = "문의 종류를 분류하지 못했습니다. 문의 내용을 직접 확인해 주세요."
+
+
+def low_confidence_note(threshold_percent):
+    return f"분류 확신도가 기준값({threshold_percent}%)보다 낮습니다. 문의 종류가 맞는지 먼저 확인해 주세요."
 
 STATUS_KO = {
     "awaiting_approval": "승인 대기",
@@ -47,12 +51,9 @@ def validate_body(raw):
     return body
 
 
-def decide_status(confidence, threshold_percent):
-    """확신도가 기준값 이상이면 승인 대기 후보, 아니면 직접 작성.
-
-    승인 대기가 되려면 정책 근거를 찾아 초안을 만드는 데도 성공해야 한다 (prepare_initial_draft).
-    """
-    return "awaiting_approval" if round(confidence * 100, 6) >= threshold_percent else "manual"
+def is_low_confidence(confidence, threshold_percent):
+    """확신도가 기준값보다 낮은지. 낮아도 초안은 쓰고, 경고만 띄운다."""
+    return round(confidence * 100, 6) < threshold_percent
 
 
 def get_threshold(conn):
@@ -114,7 +115,7 @@ def get_detail(conn, policy, inquiry_id):
         return None
 
     rows = conn.execute(
-        "SELECT draft_no, content, cited_articles, created_at FROM drafts"
+        "SELECT draft_no, content, cited_articles, uncovered_note, created_at FROM drafts"
         " WHERE inquiry_id = %s ORDER BY draft_no",
         (inquiry_id,),
     ).fetchall()
@@ -123,6 +124,7 @@ def get_detail(conn, policy, inquiry_id):
             "draft_no": r["draft_no"],
             "content": r["content"],
             "cited": list(r["cited_articles"]),
+            "uncovered_note": r["uncovered_note"],
             "created_at": r["created_at"],
         }
         for r in rows
@@ -150,60 +152,68 @@ def get_detail(conn, policy, inquiry_id):
     return inquiry
 
 
-def insert_draft(conn, inquiry_id, draft_no, text, cited):
+def insert_draft(conn, inquiry_id, draft_no, text, cited, uncovered_note=None):
     conn.execute(
-        "INSERT INTO drafts (inquiry_id, draft_no, content, cited_articles) VALUES (%s, %s, %s, %s)",
-        (inquiry_id, draft_no, text, Jsonb(list(cited))),
+        "INSERT INTO drafts (inquiry_id, draft_no, content, cited_articles, uncovered_note)"
+        " VALUES (%s, %s, %s, %s, %s)",
+        (inquiry_id, draft_no, text, Jsonb(list(cited)), uncovered_note or None),
     )
 
 
-def prepare_initial_draft(policy, drafter, label, body):
-    """정책 근거를 찾아 첫 초안을 만든다. (초안 글, 근거 조항 번호, 안내 문구)를 돌려준다.
+def evidence_label(label, confidence, threshold_percent):
+    """근거 조항을 찾을 때 쓸 문의 종류. 분류를 믿을 수 없으면 None(정책 전체에서 찾는다)."""
+    if label is None or confidence is None or is_low_confidence(confidence, threshold_percent):
+        return None
+    return label
 
-    초안을 만들 수 없으면 (None, None, 안내 문구) 이고, 그 문의는 '직접 작성'으로 간다.
+
+def prepare_initial_draft(policy, drafter, search_label, body):
+    """근거 조항을 찾아 첫 초안을 만든다. (초안 글, 근거 조항 번호, 근거에 없는 내용, 안내 문구)를 돌려준다.
+
+    근거 조항을 못 찾아도 초안은 쓴다 (근거 조항 번호는 빈 목록, 근거에 없는 내용이 채워진다).
+    초안 자체를 만들 수 없을 때만 (None, None, None, 안내 문구) 이고, 그 문의는 '직접 작성'으로 간다.
     """
-    evidence = policy.find_evidence(label, body)
-    if not evidence:
-        return None, None, NO_EVIDENCE_NOTE
-    clauses = [c for c, _ in evidence]
+    clauses = [c for c, _ in policy.find_evidence(search_label, body)]
     try:
         result = drafter.draft(body, clauses)
-        if result is None:  # 모델이 '이 조항들로는 답할 수 없다'고 판단
-            return None, None, NO_EVIDENCE_NOTE
         cited = verify_citations(result.cited, [c.id for c in clauses], policy)
     except CitationError as e:
         logger.warning("초안의 근거 조항 번호가 잘못되었습니다: %s", e)
-        return None, None, BAD_CITATION_NOTE
+        return None, None, None, BAD_CITATION_NOTE
     except DraftError as e:
         logger.warning("초안 만들기에 실패했습니다: %s", e)
-        return None, None, AUTO_FAIL_NOTE
-    return result.text, cited, None
+        return None, None, None, AUTO_FAIL_NOTE
+    return result.text, cited, result.uncovered_note or None, None
 
 
 def create_inquiry(conn, classifier, policy, drafter, raw_body, agent_id=None, source="user"):
-    """문의를 저장하고 분류한 뒤, 승인 대기가 될 문의에는 근거를 찾아 초안을 붙인다.
+    """문의를 저장하고 분류한 뒤, 모든 문의에 근거 조항을 찾아 초안을 붙인다.
 
-    분류나 초안 만들기가 실패해도 문의는 저장하고 '직접 작성'으로 보낸다.
+    확신도가 기준값보다 낮으면 초안은 쓰되 경고 문구를 남기고, 정책 전체에서 근거를 찾는다.
+    분류나 초안 만들기가 실패해도 문의는 저장한다. 초안을 못 만들면 '직접 작성'으로 보낸다.
     """
     body = validate_body(raw_body)
     threshold = get_threshold(conn)
 
-    draft_text = cited = note = None
+    note = None
     try:
         label, confidence = classifier.classify(body)
-        status = decide_status(confidence, threshold)
+        if is_low_confidence(confidence, threshold):
+            note = low_confidence_note(threshold)
     except Exception:
         logger.exception("문의 분류에 실패했습니다")
-        label, confidence, status, note = None, None, "manual", AUTO_FAIL_NOTE
+        label, confidence, note = None, None, CLASSIFY_FAIL_NOTE
 
-    if status == "awaiting_approval":
-        try:
-            draft_text, cited, note = prepare_initial_draft(policy, drafter, label, body)
-        except Exception:
-            logger.exception("초안 만들기 중 예상하지 못한 오류가 났습니다")
-            draft_text, cited, note = None, None, AUTO_FAIL_NOTE
-        if draft_text is None:
-            status = "manual"
+    try:
+        draft_text, cited, uncovered, fail_note = prepare_initial_draft(
+            policy, drafter, evidence_label(label, confidence, threshold), body
+        )
+    except Exception:
+        logger.exception("초안 만들기 중 예상하지 못한 오류가 났습니다")
+        draft_text, cited, uncovered, fail_note = None, None, None, AUTO_FAIL_NOTE
+    status = "awaiting_approval"
+    if draft_text is None:
+        status, note = "manual", fail_note
 
     row = conn.execute(
         "INSERT INTO inquiries (body, status, predicted_label, confidence, auto_note, source, created_by)"
@@ -211,7 +221,7 @@ def create_inquiry(conn, classifier, policy, drafter, raw_body, agent_id=None, s
         (body, status, label, confidence, note, source, agent_id),
     ).fetchone()
     if draft_text is not None:
-        insert_draft(conn, row["id"], 1, draft_text, cited)
+        insert_draft(conn, row["id"], 1, draft_text, cited, uncovered)
     return get_inquiry(conn, row["id"])
 
 
@@ -221,16 +231,18 @@ def backfill_drafts(conn, policy, drafter):
     Phase 2에서 들어간 문의처럼 초안 없이 승인 대기가 된 문의를 바로잡는 용도다.
     (붙인 개수, 직접 작성으로 보낸 개수)를 돌려준다.
     """
+    threshold = get_threshold(conn)
     rows = conn.execute(
-        "SELECT i.id, i.body, i.predicted_label FROM inquiries i"
+        "SELECT i.id, i.body, i.predicted_label, i.confidence FROM inquiries i"
         " WHERE i.status = 'awaiting_approval'"
         " AND NOT EXISTS (SELECT 1 FROM drafts d WHERE d.inquiry_id = i.id) ORDER BY i.id"
     ).fetchall()
     attached = moved = 0
     for row in rows:
-        text, cited, note = prepare_initial_draft(policy, drafter, row["predicted_label"], row["body"])
+        label = evidence_label(row["predicted_label"], row["confidence"], threshold)
+        text, cited, uncovered, note = prepare_initial_draft(policy, drafter, label, row["body"])
         if text is not None:
-            insert_draft(conn, row["id"], 1, text, cited)
+            insert_draft(conn, row["id"], 1, text, cited, uncovered)
             attached += 1
         else:
             conn.execute(

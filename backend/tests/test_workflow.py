@@ -4,9 +4,11 @@
 """
 from app import inquiries as service
 from app import workflow
+from app.drafting import NO_COVERAGE_NOTE
 from tests.base import (
     COUPON_TEXT,
     FIRST_DRAFT,
+    PARTIAL_NOTE,
     SECOND_DRAFT,
     ApiTestBase,
     StubClassifier,
@@ -37,9 +39,10 @@ class WorkflowTest(ApiTestBase):
         return inquiry
 
     def manual(self, client):
-        self.classifier.confidence = 0.40
+        """초안을 만들지 못해 '직접 작성'이 된 문의."""
+        self.drafter.mode = "error"
         inquiry = self.create(client)
-        self.classifier.confidence = 0.95
+        self.drafter.mode = "ok"
         self.assertEqual(inquiry["status"], "manual")
         return inquiry
 
@@ -85,23 +88,56 @@ class WorkflowTest(ApiTestBase):
         text = str(inquiry)
         self.assertNotIn("응대 주의", text)
 
-    def test_no_evidence_means_manual_and_the_drafter_is_not_called(self):
+    def test_no_evidence_still_gets_a_draft_marked_as_not_in_the_policy(self):
         inquiry = self.create(self.login("kim"), "ㅁㅁㅁㅁㅁㅁ ㅋㅋㅋ")
-        self.assertEqual(inquiry["status"], "manual")
-        self.assertEqual(inquiry["auto_note"], service.NO_EVIDENCE_NOTE)
-        self.assertIsNone(inquiry["current_draft"])
-        self.assertEqual(inquiry["actions"], ["manual_reply"])
-        self.assertEqual(self.drafter.calls, [])
-
-    def test_low_confidence_skips_the_drafter(self):
-        inquiry = self.manual(self.login("kim"))
+        self.assertEqual(inquiry["status"], "awaiting_approval")
         self.assertIsNone(inquiry["auto_note"])
-        self.assertEqual(self.drafter.calls, [])
+        self.assertEqual(inquiry["current_draft"]["content"], FIRST_DRAFT)
+        self.assertEqual(inquiry["current_draft"]["cited"], [])
+        self.assertEqual(inquiry["current_draft"]["uncovered_note"], NO_COVERAGE_NOTE)
+        self.assertEqual(inquiry["evidence"], [])
+        self.assertEqual(inquiry["actions"], ["approve", "edit", "rewrite"])
+        self.assertEqual(self.drafter.calls[0]["clauses"], [])  # 근거 없이 모델을 불렀다
+
+    def test_partly_covered_draft_shows_evidence_and_the_missing_part(self):
+        self.drafter.mode = "partial"
+        inquiry = self.awaiting(self.login("kim"))
+        self.assertTrue(inquiry["evidence"])
+        self.assertEqual(inquiry["current_draft"]["uncovered_note"], PARTIAL_NOTE)
+
+    def test_fully_covered_draft_has_no_uncovered_note(self):
+        inquiry = self.awaiting(self.login("kim"))
+        self.assertIsNone(inquiry["current_draft"]["uncovered_note"])
+
+    def test_the_model_saying_no_clause_applies_is_kept_as_is(self):
+        self.drafter.mode = "no_coverage"
+        inquiry = self.awaiting(self.login("kim"))
+        self.assertEqual(inquiry["current_draft"]["cited"], [])
+        self.assertEqual(inquiry["current_draft"]["uncovered_note"], NO_COVERAGE_NOTE)
+        self.assertEqual(inquiry["evidence"], [])
+
+    def test_low_confidence_still_gets_a_draft_with_a_warning(self):
+        self.classifier.confidence = 0.40
+        inquiry = self.create(self.login("kim"))
+        self.assertEqual(inquiry["status"], "awaiting_approval")
+        self.assertEqual(inquiry["auto_note"], service.low_confidence_note(70))
+        self.assertIsNotNone(inquiry["current_draft"])
+        self.assertEqual(inquiry["actions"], ["approve", "edit", "rewrite"])
+
+    def test_low_confidence_looks_for_evidence_in_the_whole_policy(self):
+        body = "정산금이 언제 입금되나요 정산 일정이 궁금해요"
+        kim = self.login("kim")
+        self.create(kim, body)  # 확신도 높음: 분류(취소·환불)에 연결된 조항에서만 찾는다
+        confident = self.drafter.calls[-1]["clauses"]
+        self.assertFalse([c for c in confident if c.startswith("STL")])
+        self.classifier.confidence = 0.40  # 확신도 낮음: 분류를 믿지 않고 정책 전체에서 찾는다
+        self.create(kim, body)
+        unsure = self.drafter.calls[-1]["clauses"]
+        self.assertTrue([c for c in unsure if c.startswith("STL")], unsure)
 
     def test_drafter_problems_send_the_inquiry_to_manual(self):
         cases = {
             "error": service.AUTO_FAIL_NOTE,
-            "unanswerable": service.NO_EVIDENCE_NOTE,
             "bad_id": service.BAD_CITATION_NOTE,  # 정책 문서에 없는 조항 번호
             "not_provided": service.BAD_CITATION_NOTE,  # 있는 번호지만 제공하지 않은 조항
         }
@@ -113,6 +149,7 @@ class WorkflowTest(ApiTestBase):
                 self.assertEqual(inquiry["status"], "manual")
                 self.assertEqual(inquiry["auto_note"], note)
                 self.assertEqual(inquiry["drafts"], [])
+                self.assertEqual(inquiry["actions"], ["manual_reply"])
 
     # --- 승인 -----------------------------------------------------------------
 
@@ -253,10 +290,21 @@ class WorkflowTest(ApiTestBase):
         self.assertEqual(third.status_code, 409)
         self.assertIn("1번만", third.json()["detail"])
 
+    def test_rewrite_of_a_draft_without_clauses_searches_again_and_keeps_the_note(self):
+        kim = self.login("kim")
+        self.drafter.mode = "no_coverage"
+        inquiry = self.awaiting(kim)
+        self.drafter.mode = "partial"
+        second = self.act(kim, inquiry, "rewrite").json()
+        self.assertEqual(second["current_draft"]["draft_no"], 2)
+        self.assertTrue(second["current_draft"]["cited"])  # 다시 찾은 근거 조항
+        self.assertEqual(second["current_draft"]["uncovered_note"], PARTIAL_NOTE)
+        self.assertEqual(second["drafts"][0]["uncovered_note"], NO_COVERAGE_NOTE)  # 첫 초안은 그대로
+
     def test_failed_rewrite_keeps_the_first_draft_and_is_not_counted(self):
         kim = self.login("kim")
         inquiry = self.awaiting(kim)
-        for mode in ("error", "bad_id", "unanswerable"):
+        for mode in ("error", "bad_id", "not_provided"):
             with self.subTest(mode=mode):
                 self.drafter.mode = mode
                 response = self.act(kim, inquiry, "rewrite")
@@ -431,11 +479,11 @@ class WorkflowTest(ApiTestBase):
         self.assertEqual(changed.json()["confidence_threshold"], 80)
         self.assertEqual(self.login("park").get("/api/settings").json()["confidence_threshold"], 80)
 
-        # 저장한 뒤 새로 들어오는 문의부터 적용된다
+        # 저장한 뒤 새로 들어오는 문의부터 적용된다 (기준값 아래면 경고가 붙는다)
         self.classifier.confidence = 0.75
-        self.assertEqual(self.create(kim)["status"], "manual")
+        self.assertEqual(self.create(kim)["auto_note"], service.low_confidence_note(80))
         kim.put("/api/settings/confidence-threshold", json={"value": 70})
-        self.assertEqual(self.create(kim)["status"], "awaiting_approval")
+        self.assertIsNone(self.create(kim)["auto_note"])
 
     def test_threshold_must_be_a_whole_number_from_50_to_95(self):
         kim = self.login("kim")

@@ -13,8 +13,8 @@ python -m venv .venv
 .venv\Scripts\python.exe -m app.seed           # 상담사 3명, 위험 표현 20개, 가짜 문의 20개 넣기 (여러 번 실행해도 안전)
 ```
 
-`app.seed`는 승인 대기가 될 문의의 초안을 OpenAI로 만들기 때문에 `.env`에 `OPENAI_API_KEY`와 `OPENAI_MODEL`이 필요합니다.
-분류 모델이나 정책 문서를 바꾼 뒤에는 `app.seed --reset`으로 가짜 문의 20개를 지우고 새 모델로 다시 넣어 상태를 새로 잡습니다.
+`app.seed`는 모든 문의의 초안을 OpenAI로 만들기 때문에 `.env`에 `OPENAI_API_KEY`와 `OPENAI_MODEL`이 필요합니다.
+분류 모델이나 정책 문서를 바꾼 뒤에는 `app.seed --reset`으로 가짜 문의 20개를 지우고 새 모델로 다시 넣어 상태를 새로 잡습니다. (OpenAI를 20번 부르므로 약간의 비용이 듭니다.)
 (상담사가 이미 처리한 가짜 문의가 하나라도 있으면 아무것도 지우지 않고 멈춥니다.)
 
 ## 서버 실행

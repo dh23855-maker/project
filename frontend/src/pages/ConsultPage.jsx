@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../api.js'
 import InquiryDetail from '../components/InquiryDetail.jsx'
-import InquiryList from '../components/InquiryList.jsx'
+import InquiryList, { DEFAULT_SORT, SORT_OPTIONS } from '../components/InquiryList.jsx'
 import NewInquiryForm from '../components/NewInquiryForm.jsx'
 
 // 상담 화면: 왼쪽 문의 목록, 오른쪽 선택한 문의 처리.
@@ -13,6 +13,7 @@ export default function ConsultPage() {
   const [detailState, setDetailState] = useState('idle')
   const [notice, setNotice] = useState(null) // { kind: 'error' | 'success', text }
   const [busyText, setBusyText] = useState(null)
+  const [sort, setSort] = useState(DEFAULT_SORT)
   const shownId = useRef(null) // 지금 화면에 이미 받아 둔 문의의 번호
 
   useEffect(() => {
@@ -114,8 +115,20 @@ export default function ConsultPage() {
           <h2>받은편지함</h2>
           <span className="muted">{items.length}건</span>
         </div>
+        <div className="side-sort">
+          <label>
+            정렬
+            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="side-list">
-          <InquiryList items={items} selectedId={selectedId} onSelect={select} state={listState} />
+          <InquiryList items={items} selectedId={selectedId} onSelect={select} state={listState} sort={sort} />
         </div>
         <NewInquiryForm onCreated={created} disabled={Boolean(busyText)} />
       </aside>
