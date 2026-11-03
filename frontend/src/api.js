@@ -90,4 +90,9 @@ export const api = {
 
   // 작업 기록
   listLogs: ({ agent, action } = {}) => request('GET', `/api/action-logs${query({ agent, action })}`),
+
+  // 성능 평가
+  listEvaluations: () => request('GET', '/api/evaluations'),
+  getEvaluation: (id) => request('GET', `/api/evaluations/${id}`),
+  runEvaluation: () => request('POST', '/api/evaluations'),
 }

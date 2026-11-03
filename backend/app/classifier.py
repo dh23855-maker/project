@@ -13,6 +13,11 @@ class Classifier:
         self._pipeline = self._bundle["pipeline"]
         self.description = self._bundle["description"]
 
+    @property
+    def bundle(self):
+        """성능 평가가 쓰는 학습된 모델 묶음."""
+        return self._bundle
+
     def classify(self, text):
         """(종류, 확신도 0~1)을 돌려준다."""
         probabilities = self._pipeline.predict_proba([text])[0]

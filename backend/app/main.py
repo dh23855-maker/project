@@ -16,12 +16,13 @@ from app.config import load_settings
 from app.db import make_pool
 from app.drafting import OpenAIDrafter
 from app.policy import PolicyBook
-from app.routers import auth, inquiries, logs, settings as settings_router
+from app.routers import auth, evaluations, inquiries, logs, settings as settings_router
 from app.workflow import WorkflowError
+from ml.data import EVAL_PATH
 
 
-def create_app(schema=None, classifier=None, policy=None, drafter=None):
-    """schema, classifier, policy, drafter는 시험에서만 쓴다. 평소에는 비워 둔다."""
+def create_app(schema=None, classifier=None, policy=None, drafter=None, eval_path=None):
+    """schema, classifier, policy, drafter, eval_path는 시험에서만 쓴다. 평소에는 비워 둔다."""
     settings = load_settings()
     policy = policy or PolicyBook()
     drafter = drafter or OpenAIDrafter(settings.openai_api_key, settings.openai_model)
@@ -34,6 +35,7 @@ def create_app(schema=None, classifier=None, policy=None, drafter=None):
         app.state.classifier = classifier or Classifier()
         app.state.policy = policy
         app.state.drafter = drafter
+        app.state.eval_path = eval_path or EVAL_PATH
         try:
             yield
         finally:
@@ -69,4 +71,5 @@ def create_app(schema=None, classifier=None, policy=None, drafter=None):
     app.include_router(inquiries.router)
     app.include_router(settings_router.router)
     app.include_router(logs.router)
+    app.include_router(evaluations.router)
     return app

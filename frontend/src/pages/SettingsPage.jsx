@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import { formatTime } from '../format.js'
 
-// 설정 화면: 기준값(확신도 이 값 이상이면 승인 대기)과 위험 표현 목록.
+// 설정 화면: 기준값(확신도가 이 값보다 낮으면 경고)과 위험 표현 목록.
 export default function SettingsPage() {
   const [settings, setSettings] = useState(null)
   const [thresholdText, setThresholdText] = useState('')
@@ -75,7 +75,7 @@ export default function SettingsPage() {
       <section className="card">
         <h2>기준값</h2>
         <p className="muted">
-          분류 확신도가 이 값 이상이고 정책 근거를 찾으면 &quot;승인 대기&quot;, 아니면 &quot;직접 작성&quot;으로 갑니다.
+          분류 확신도가 이 값보다 낮은 문의에는 초안과 함께 &quot;분류 확신도가 낮음&quot; 경고가 뜹니다. 낮아도 초안은 만듭니다.
           저장한 뒤 새로 들어오는 문의부터 적용되고 이미 있는 문의는 바뀌지 않습니다.
         </p>
         <form className="inline-form" onSubmit={saveThreshold} noValidate>
