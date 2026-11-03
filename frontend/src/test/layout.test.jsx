@@ -59,7 +59,83 @@ describe('메뉴의 선택 표시', () => {
     const css = readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf-8')
     const active = css.match(/\.topbar nav a\.active \{[^}]*\}/)[0]
     expect(active).not.toMatch(/font-weight/)
-    expect(css).toMatch(/\.nav-pill\.animate \{[^}]*transition: transform/)
+    expect(css).toMatch(/\.slide-pill\.animate \{[^}]*transition: transform/)
+  })
+})
+
+// 받은 문의의 상태 탭과 문의 현황의 기간 탭도 메뉴처럼 선택 표시(알약)가 미끄러지듯 옮겨 간다
+describe('탭의 선택 표시(알약)', () => {
+  const stubTabs = () => {
+    // jsdom은 위치를 계산하지 않으므로 탭 순서대로 100px 간격의 위치를 흉내 낸다
+    vi.spyOn(HTMLElement.prototype, 'offsetLeft', 'get').mockImplementation(function () {
+      return [...(this.parentElement?.querySelectorAll('[role="tab"]') ?? [])].indexOf(this) * 100
+    })
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function () {
+      return this.getAttribute('role') === 'tab' ? 90 : 0
+    })
+  }
+  const pillOf = (tablistName) => within(screen.getByRole('tablist', { name: tablistName })).getByText('', { selector: '.slide-pill' })
+
+  it('받은 문의: 처음에는 움직임 없이 "전체" 자리에 있고, 탭을 바꾸면 그 탭 자리로 옮겨 간다', async () => {
+    stubTabs()
+    mockServer(baseRoutes(makeDetail()))
+    renderApp('/')
+    await screen.findByRole('heading', { name: '문의 #1' })
+    const pill = pillOf('상태별 보기')
+    expect(pill).toHaveAttribute('aria-hidden', 'true')
+    expect(pill.style.transform).toBe('translateX(0px)')
+    expect(pill.style.width).toBe('90px')
+    expect(pill).not.toHaveClass('animate')
+
+    await userEvent.click(screen.getByRole('tab', { name: /처리 완료/ }))
+    expect(pillOf('상태별 보기').style.transform).toBe('translateX(300px)') // 네 번째 탭
+    expect(pillOf('상태별 보기')).toHaveClass('animate')
+    // 선택된 탭 자체에는 배경색을 직접 칠하지 않는다 (알약이 대신한다)
+    const css = readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf-8')
+    expect(css.match(/\.status-tab\.active \{[^}]*\}/)[0]).not.toMatch(/background/)
+  })
+
+  it('문의 현황: 기간을 바꾸면 선택 표시가 그 기간 자리로 옮겨 간다', async () => {
+    stubTabs()
+    mockServer({
+      ...baseRoutes(makeDetail()),
+      'GET /api/stats/inquiries': { days: 14, unit: 'day', start: '2026-10-21', end: '2026-11-03', buckets: [], types: [], overall: null, handling: null, elapsed: null, threshold: 0.6 },
+    })
+    renderApp('/stats')
+    await screen.findByRole('heading', { name: '문의 현황' })
+    const pill = () => pillOf('기간')
+    expect(pill().style.transform).toBe('translateX(200px)') // 기본값 최근 14일은 세 번째
+    expect(pill()).not.toHaveClass('animate')
+
+    await userEvent.click(screen.getByRole('tab', { name: '오늘' }))
+    expect(pill().style.transform).toBe('translateX(0px)')
+    expect(pill()).toHaveClass('animate')
+    expect(screen.getByRole('tab', { name: '오늘' })).toHaveClass('active')
+  })
+
+  it('목록 너비를 바꾸는 등 칸 크기가 바뀔 때는 움직임 없이 따라간다', async () => {
+    stubTabs()
+    const callbacks = [] // 메뉴와 탭이 각자 지켜본다
+    const notify = (entries) => callbacks.forEach((callback) => callback(entries))
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback) {
+          callbacks.push(callback)
+        }
+        observe() {}
+        disconnect() {}
+      },
+    )
+    mockServer(baseRoutes(makeDetail()))
+    renderApp('/')
+    await screen.findByRole('heading', { name: '문의 #1' })
+    await userEvent.click(screen.getByRole('tab', { name: /처리 완료/ }))
+    expect(pillOf('상태별 보기')).toHaveClass('animate')
+    act(() => notify([])) // 시작할 때 오는 첫 알림은 크기가 바뀐 것이 아니다
+    expect(pillOf('상태별 보기')).toHaveClass('animate')
+    act(() => notify([])) // 실제로 크기가 바뀌면 움직임을 끄고 바로 맞춘다
+    expect(pillOf('상태별 보기')).not.toHaveClass('animate')
   })
 })
 

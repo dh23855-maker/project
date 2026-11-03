@@ -233,8 +233,8 @@ label {
 .topbar nav a.active {
   color: var(--text);
 }
-/* 선택한 메뉴 뒤에서 미끄러지듯 움직이는 알약 */
-.nav-pill {
+/* 선택한 항목 뒤에서 미끄러지듯 움직이는 알약 (상단 메뉴, 상태 탭, 기간 탭 공통) */
+.slide-pill {
   position: absolute;
   top: 3px;
   bottom: 3px;
@@ -243,14 +243,15 @@ label {
   background: var(--pill-active);
   z-index: 0;
 }
-.nav-pill.animate {
+.slide-pill.animate {
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 @media (prefers-reduced-motion: reduce) {
-  .nav-pill.animate {
+  .slide-pill.animate {
     transition: none;
   }
-  .topbar nav a {
+  .topbar nav a,
+  .status-tab {
     transition: none;
   }
 }
@@ -370,6 +371,7 @@ body.resizing {
 }
 /* 상태별로 골라 보는 탭 */
 .status-tabs {
+  position: relative;
   display: flex;
   gap: 2px;
   margin: 4px 16px 10px;
@@ -379,6 +381,8 @@ body.resizing {
   box-shadow: 0 0 0 1px var(--border);
 }
 .status-tab {
+  position: relative;
+  z-index: 1;
   flex: 1 1 0;
   min-width: 0;
   padding: 5px 4px;
@@ -390,12 +394,13 @@ body.resizing {
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
+  transition: color 0.2s;
 }
 .status-tab:hover {
   color: var(--text);
 }
+/* 선택 표시의 배경은 뒤에서 움직이는 알약(.slide-pill)이 맡는다 */
 .status-tab.active {
-  background: var(--pill-active);
   color: var(--text);
   font-weight: 700;
 }
@@ -902,6 +907,7 @@ mark {
   margin: 14px 0 16px;
 }
 .range-tabs {
+  position: relative;
   display: inline-flex;
   gap: 2px;
   padding: 3px;

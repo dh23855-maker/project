@@ -1,4 +1,6 @@
+import { useRef } from 'react'
 import { STATUS_LABEL, formatTime, snippet } from '../format.js'
+import { PillMark, useSlidingPill } from './SlidingPill.jsx'
 
 export function StatusBadge({ status }) {
   return <span className={`badge badge-${status}`}>{STATUS_LABEL[status] ?? status}</span>
@@ -37,8 +39,11 @@ export function countByStatus(items) {
 // 상태별로 골라 보는 탭. 탭마다 건수를 보여 준다.
 export function StatusTabs({ items, filter, onChange }) {
   const counts = countByStatus(items)
+  const tabsRef = useRef(null)
+  const { box, animate } = useSlidingPill(tabsRef, '.status-tab.active', filter)
   return (
-    <div className="status-tabs" role="tablist" aria-label="상태별 보기">
+    <div className="status-tabs" role="tablist" aria-label="상태별 보기" ref={tabsRef}>
+      <PillMark box={box} animate={animate} className="tab-pill" />
       {FILTER_TABS.map((tab) => (
         <button
           key={tab.value}

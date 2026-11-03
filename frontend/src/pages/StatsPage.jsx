@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.js'
+import { PillMark, useSlidingPill } from '../components/SlidingPill.jsx'
 
 export const RANGES = [
   { days: 1, label: '오늘' },
@@ -449,6 +450,8 @@ function Handling({ handling }) {
 // 문의 현황: 언제 어떤 종류의 문의가 얼마나 들어왔는지, 초안과 처리가 어땠는지 본다.
 export default function StatsPage() {
   const [days, setDays] = useState(DEFAULT_DAYS)
+  const rangeRef = useRef(null)
+  const pill = useSlidingPill(rangeRef, '.status-tab.active', days)
   const [data, setData] = useState(null)
   const [state, setState] = useState('loading')
   const [error, setError] = useState('')
@@ -492,7 +495,8 @@ export default function StatsPage() {
       <p className="muted">언제 어떤 종류의 문의가 얼마나 들어왔는지, 초안과 처리가 어땠는지 봅니다. 문의 종류는 분류 모델이 정한 결과입니다.</p>
 
       <div className="stats-controls">
-        <div className="range-tabs" role="tablist" aria-label="기간">
+        <div className="range-tabs" role="tablist" aria-label="기간" ref={rangeRef}>
+          <PillMark box={pill.box} animate={pill.animate} className="tab-pill" />
           {RANGES.map((r) => (
             <button
               key={r.days}
