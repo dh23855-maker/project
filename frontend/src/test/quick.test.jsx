@@ -178,7 +178,7 @@ describe('빠른 승인 목록 전체를 한 번에 승인', () => {
     const button = screen.getByRole('button', { name: '빠른 승인' })
     expect(button).toBeEnabled()
     const head = button.closest('.side-head')
-    expect(head).toContainElement(screen.getByLabelText('정렬'))
+    expect(head).toContainElement(screen.getByRole('combobox', { name: '정렬' }))
     expect(head.querySelector('h2').textContent).toBe('받은 문의')
   })
 

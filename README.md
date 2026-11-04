@@ -49,7 +49,7 @@
 ## 시험
 
 - 서버 233개: `backend` 폴더에서 `.venv\Scripts\python.exe -m unittest discover -s tests -t .`
-- 화면 200개: `frontend` 폴더에서 `npm test`
+- 화면 210개: `frontend` 폴더에서 `npm test`
 
 시험은 OpenAI를 가짜로 대신해 비용이 들지 않고, DB 시험은 임시 영역에서 돌고 끝나면 지웁니다. 새 기능마다 코드를 일부러 망가뜨려 시험이 실패로 잡아내는지도 확인했습니다. 실제 Edge 브라우저로도 주요 화면을 열어 콘솔 오류가 없는 것을 확인했습니다.
 

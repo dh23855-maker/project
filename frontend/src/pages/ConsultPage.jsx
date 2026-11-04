@@ -12,6 +12,7 @@ import InquiryList, {
 import BatchUpload from '../components/BatchUpload.jsx'
 import NewInquiryForm from '../components/NewInquiryForm.jsx'
 import QuickApprove from '../components/QuickApprove.jsx'
+import SelectMenu from '../components/SelectMenu.jsx'
 
 const SIDE_KEY = 'consult-side-width'
 export const SIDE_DEFAULT = 440
@@ -233,18 +234,15 @@ export default function ConsultPage() {
               <QuickApprove items={filterInquiries(items, QUICK_FILTER, sort)} onDone={quickApproved} />
             </span>
           )}
-          <select
+          <SelectMenu
             className="side-sort-select"
-            aria-label="정렬"
+            label="정렬"
+            variant="pill"
+            align="right"
             value={sort}
-            onChange={(e) => setSort(e.target.value)}
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            onChange={setSort}
+            options={SORT_OPTIONS}
+          />
         </div>
         <StatusTabs items={items} filter={filter} onChange={setFilter} />
         <div className="side-list">

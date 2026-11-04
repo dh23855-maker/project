@@ -13,6 +13,7 @@ import {
   mockServer,
   renderApp,
   toListItem,
+  pickOption,
 } from './utils.jsx'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -563,7 +564,7 @@ describe('받은 문의: 상태별 보기', () => {
     expect(tab('전체')).toHaveAttribute('aria-selected', 'true')
     const names = screen.getAllByRole('tab').map((t) => t.textContent.replace(/\s+/g, ' '))
     expect(names).toEqual(['전체 5', '승인 대기 2', '직접 작성 1', '처리 완료 2'])
-    expect(screen.getByLabelText('정렬')).toHaveValue('newest')
+    expect(screen.getByRole('combobox', { name: '정렬' })).toHaveTextContent('최신순')
   })
 
   it('상태 탭을 누르면 그 상태의 문의만 최신순으로 보인다', async () => {
@@ -631,10 +632,10 @@ describe('받은 문의: 정렬', () => {
     setup()
     renderApp()
     await screen.findByRole('heading', { name: '문의 #4' })
-    expect(screen.getByLabelText('정렬')).toHaveValue('newest')
+    expect(screen.getByRole('combobox', { name: '정렬' })).toHaveTextContent('최신순')
     expect(order()[0]).toBe('완료된 최신 문의')
 
-    await userEvent.selectOptions(screen.getByLabelText('정렬'), 'oldest')
+    await pickOption('정렬', '오래된순')
     expect(order()).toEqual([
       '완료된 오래된 문의',
       '대기 중 먼저 온 문의',
@@ -650,12 +651,12 @@ describe('받은 문의: 정렬', () => {
     await screen.findByRole('heading', { name: '문의 #4' })
     await userEvent.click(screen.getByRole('tab', { name: /^승인 대기/ }))
     expect(order()).toEqual(['대기 중 나중에 온 문의', '대기 중 먼저 온 문의'])
-    await userEvent.selectOptions(screen.getByLabelText('정렬'), 'oldest')
+    await pickOption('정렬', '오래된순')
     expect(order()).toEqual(['대기 중 먼저 온 문의', '대기 중 나중에 온 문의'])
     // 다른 탭으로 옮겨도 고른 정렬은 그대로이고 탭 건수는 바뀌지 않는다
     await userEvent.click(screen.getByRole('tab', { name: /^처리 완료/ }))
     expect(order()).toEqual(['완료된 오래된 문의', '완료된 최신 문의'])
-    expect(screen.getByLabelText('정렬')).toHaveValue('oldest')
+    expect(screen.getByRole('combobox', { name: '정렬' })).toHaveTextContent('오래된순')
     expect(screen.getAllByRole('tab').map((t) => t.textContent.replace(/\s+/g, ' '))).toEqual(['전체 5', '승인 대기 2', '직접 작성 1', '처리 완료 2'])
   })
 
@@ -663,7 +664,7 @@ describe('받은 문의: 정렬', () => {
     setup()
     renderApp()
     await screen.findByRole('heading', { name: '문의 #4' })
-    await userEvent.selectOptions(screen.getByLabelText('정렬'), 'oldest')
+    await pickOption('정렬', '오래된순')
     expect(screen.getByRole('heading', { name: '문의 #4' })).toBeInTheDocument()
     const selected = within(screen.getByRole('list', { name: '문의 목록' })).getByText('대기 중 나중에 온 문의')
     expect(selected.closest('button')).toHaveAttribute('aria-current', 'true')

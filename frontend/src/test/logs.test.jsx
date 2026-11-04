@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { agent, mockServer, renderApp } from './utils.jsx'
+import { agent, mockServer, pickOption, renderApp } from './utils.jsx'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -109,13 +109,13 @@ describe('작업 기록 화면', () => {
     renderApp('/logs')
     await screen.findByRole('table')
 
-    await userEvent.selectOptions(screen.getByLabelText('상담사'), 'park')
+    await pickOption('상담사', '박상담')
     await waitFor(() => expect(server.called('GET', '/api/action-logs?agent=park')).toHaveLength(1))
 
-    await userEvent.selectOptions(screen.getByLabelText('행동'), 'edit')
+    await pickOption('행동', '수정')
     await waitFor(() => expect(server.called('GET', '/api/action-logs?agent=park&action=edit')).toHaveLength(1))
 
-    await userEvent.selectOptions(screen.getByLabelText('상담사'), '')
+    await pickOption('상담사', '전체')
     await waitFor(() => expect(server.called('GET', '/api/action-logs?action=edit')).toHaveLength(1))
   })
 

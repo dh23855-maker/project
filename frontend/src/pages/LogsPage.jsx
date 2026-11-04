@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { api } from '../api.js'
+import SelectMenu from '../components/SelectMenu.jsx'
 import { ACTION_LABEL, formatTime, snippet } from '../format.js'
 
 // 연습용 상담사 계정 (spec: 3명)
@@ -8,6 +9,8 @@ const AGENTS = [
   { username: 'park', name: '박상담' },
   { username: 'lee', name: '이상담' },
 ]
+const AGENT_OPTIONS = [{ value: '', label: '전체' }, ...AGENTS.map((a) => ({ value: a.username, label: a.name }))]
+const ACTION_OPTIONS = [{ value: '', label: '전체' }, ...Object.entries(ACTION_LABEL).map(([value, label]) => ({ value, label }))]
 
 // 작업 기록: 누가, 언제, 무엇을 했는지. 상담사와 행동으로 거를 수 있다.
 export default function LogsPage() {
@@ -42,28 +45,18 @@ export default function LogsPage() {
     <div className="page">
       <h1>작업 기록</h1>
       <div className="filters">
-        <label>
-          상담사
-          <select value={agent} onChange={(e) => setAgent(e.target.value)}>
-            <option value="">전체</option>
-            {AGENTS.map((a) => (
-              <option key={a.username} value={a.username}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          행동
-          <select value={action} onChange={(e) => setAction(e.target.value)}>
-            <option value="">전체</option>
-            {Object.entries(ACTION_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="filter">
+          <span className="filter-label" aria-hidden="true">
+            상담사
+          </span>
+          <SelectMenu label="상담사" value={agent} onChange={setAgent} options={AGENT_OPTIONS} />
+        </div>
+        <div className="filter">
+          <span className="filter-label" aria-hidden="true">
+            행동
+          </span>
+          <SelectMenu label="행동" value={action} onChange={setAction} options={ACTION_OPTIONS} />
+        </div>
       </div>
 
       {state === 'loading' && <p className="muted">불러오는 중...</p>}
@@ -77,26 +70,26 @@ export default function LogsPage() {
         <table className="table">
           <thead>
             <tr>
-              <th>시간</th>
-              <th>상담사</th>
-              <th className="col-action">행동</th>
+              <th className="nowrap">시간</th>
+              <th className="nowrap">상담사</th>
+              <th className="nowrap col-action">행동</th>
               <th>문의</th>
-              <th />
+              <th className="nowrap" />
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <Fragment key={row.id}>
                 <tr>
-                  <td>{formatTime(row.created_at)}</td>
-                  <td>{row.agent_name}</td>
-                  <td>
+                  <td className="nowrap">{formatTime(row.created_at)}</td>
+                  <td className="nowrap">{row.agent_name}</td>
+                  <td className="nowrap">
                     <span className={`tag action-${row.action}`}>{row.action_ko}</span>
                   </td>
                   <td>
                     #{row.inquiry_id} {snippet(row.inquiry_body, 40)}
                   </td>
-                  <td>
+                  <td className="nowrap">
                     <button
                       type="button"
                       className="btn btn-small"

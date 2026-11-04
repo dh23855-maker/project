@@ -366,10 +366,6 @@ body.resizing {
 }
 .side-sort-select {
   margin-left: auto;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
 }
 .side-head h2 {
   margin: 0;
@@ -711,10 +707,14 @@ mark {
   gap: 16px;
   margin: 12px 0 16px;
 }
-.filters label {
+.filter {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+.filter-label {
+  font-size: 15px;
+  font-weight: 600;
 }
 .table {
   width: 100%;
@@ -739,6 +739,10 @@ mark {
 }
 .log-detail td {
   background: var(--surface-alt);
+}
+/* 시간·상담사·행동·자세히 칸은 글자가 꺾이지 않게 한다 (긴 문의 칸이 다른 칸을 눌러 "이상/담"처럼 갈라지던 것) */
+.table .nowrap {
+  white-space: nowrap;
 }
 /* 작업 기록: 행동 뱃지는 왼쪽 여백(8px)이 있어서 머리글 "행동"도 그만큼 오른쪽으로 맞춘다 */
 .table th.col-action {
@@ -1322,6 +1326,107 @@ mark {
   padding: 7px 0;
   border-bottom: 1px solid var(--border);
   font-size: 14px;
+}
+
+/* 선택 메뉴 (정렬, 작업 기록 필터): 캘린더 창과 같은 둥근 흰 상자 */
+.select-menu {
+  position: relative;
+  display: inline-block;
+}
+.select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.select-menu-box .select-trigger {
+  min-width: 112px;
+  padding: 8px 12px 8px 14px;
+  border-radius: 12px;
+  font-size: 15px;
+}
+.select-menu-pill .select-trigger {
+  padding: 4px 10px 4px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+}
+.select-trigger:hover {
+  background: var(--surface-alt);
+}
+.select-trigger:focus-visible,
+.select-trigger[aria-expanded='true'] {
+  border-color: #1f1f1f;
+  outline: none;
+}
+.select-chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.select-trigger[aria-expanded='true'] .select-chevron {
+  transform: rotate(180deg);
+}
+.select-pop {
+  position: absolute;
+  top: 100%;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 100%;
+  margin-top: 8px;
+  padding: 6px;
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16), 0 0 0 1px var(--border);
+}
+.select-pop-left {
+  left: 0;
+}
+.select-pop-right {
+  right: 0;
+}
+.select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-width: 100px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+}
+.select-menu-box .select-option {
+  font-size: 15px;
+}
+.select-option:hover,
+.select-option:focus-visible {
+  background: var(--pill-active);
+  color: var(--text);
+  outline: none;
+}
+.select-option[aria-selected='true'] {
+  color: var(--text);
+  font-weight: 700;
+}
+@media (prefers-reduced-motion: reduce) {
+  .select-chevron {
+    transition: none;
+  }
 }
 
 /* 문의 현황의 "직접 지정" 캘린더 */

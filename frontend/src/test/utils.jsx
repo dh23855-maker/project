@@ -1,4 +1,5 @@
-import { render } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import App from '../App.jsx'
@@ -123,6 +124,12 @@ export function baseRoutes(detail = makeDetail(), extra = {}) {
     [`GET /api/inquiries/${detail.id}`]: detail,
     ...extra,
   }
+}
+
+// 선택 메뉴(정렬, 상담사, 행동)에서 항목을 고른다: 메뉴를 열고 항목을 누른다
+export async function pickOption(name, optionLabel) {
+  await userEvent.click(screen.getByRole('combobox', { name }))
+  await userEvent.click(screen.getByRole('option', { name: optionLabel }))
 }
 
 export function renderApp(path = '/') {
