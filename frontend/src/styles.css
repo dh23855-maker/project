@@ -1537,58 +1537,6 @@ mark {
 .side-head-action + .side-sort-select {
   margin-left: 0;
 }
-/* 승인 대기 탭에 마우스를 올리면 아래에 뜨는 "승인 대기 / 빠른 승인" 메뉴 */
-.status-tab-wrap {
-  position: relative;
-  display: flex;
-  flex: 1 1 0;
-  min-width: 0;
-}
-.status-tab-wrap > .status-tab {
-  flex: 1 1 auto;
-}
-.tab-menu {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  z-index: 20;
-  min-width: 150px;
-  padding-top: 6px; /* 탭과 메뉴 사이를 지나갈 때 메뉴가 닫히지 않게 비워 둔 자리 */
-  transform: translateX(-50%);
-}
-.tab-menu-card {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 4px;
-  background: var(--surface);
-  border-radius: 14px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14), 0 0 0 1px var(--border);
-}
-.tab-menu-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 7px 12px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  text-align: left;
-  cursor: pointer;
-}
-.tab-menu-item:hover,
-.tab-menu-item:focus-visible {
-  background: var(--pill-active);
-  color: var(--text);
-}
-.tab-menu-item[aria-checked='true'] {
-  color: var(--text);
-  font-weight: 700;
-}
 
 /* 비슷한 지난 문의 */
 .similar {

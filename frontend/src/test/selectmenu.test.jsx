@@ -152,7 +152,7 @@ describe('작업 기록 필터는 선택 메뉴를 쓰고, 시간·상담사·�
     expect(screen.getByRole('combobox', { name: '상담사' })).toHaveTextContent('전체')
     expect(screen.getByRole('combobox', { name: '행동' })).toHaveTextContent('전체')
     await userEvent.click(screen.getByRole('combobox', { name: '행동' }))
-    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['전체', '승인', '수정', '재작성', '직접 작성'])
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['전체', '승인', '수정', '재작성']) // "직접 작성"은 두지 않는다
     await userEvent.keyboard('{Escape}')
     await userEvent.click(screen.getByRole('combobox', { name: '상담사' }))
     expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['전체', '김상담', '박상담', '이상담'])

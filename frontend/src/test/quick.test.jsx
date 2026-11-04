@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { agent, jsonResponse, makeDetail, makeDone, makeManual, mockServer, renderApp, toListItem } from './utils.jsx'
@@ -11,8 +11,8 @@ const order = () =>
   within(screen.getByRole('list', { name: '문의 목록' }))
     .getAllByRole('button')
     .map((b) => b.querySelector('.inquiry-text').textContent)
-const awaitingTab = () => screen.getByRole('tab', { name: /^(승인 대기|빠른 승인)/ })
-const radioText = (radio) => radio.textContent.replace(/\s+/g, ' ')
+const tab = (name) => screen.getByRole('tab', { name: new RegExp(`^${name}`) })
+const tabText = (name) => tab(name).textContent.replace(/\s+/g, ' ')
 
 // 서버는 최신 문의부터 돌려준다
 const MIXED = [
@@ -24,16 +24,9 @@ const MIXED = [
   item(1, 'done', '2026-11-02T09:00:00+09:00', '완료된 오래된 문의'),
 ]
 
-const openMenu = async () => {
-  await userEvent.hover(awaitingTab())
-  return screen.getByRole('menu', { name: '승인 대기 보기 방식' })
-}
-const chooseQuick = async () => {
-  const menu = await openMenu()
-  await userEvent.click(within(menu).getByRole('menuitemradio', { name: /^빠른 승인/ }))
-}
+const chooseQuick = () => userEvent.click(tab('빠른 승인'))
 
-describe('승인 대기 탭의 "승인 대기 / 빠른 승인" 선택', () => {
+describe('받은 문의의 탭: 전체 / 승인 대기 / 빠른 승인 / 처리 완료', () => {
   const setup = () =>
     mockServer({
       'GET /api/auth/me': agent,
@@ -41,78 +34,52 @@ describe('승인 대기 탭의 "승인 대기 / 빠른 승인" 선택', () => {
       'GET /api/inquiries/5': makeDetail({ id: 5, body: '빠른 승인 가능 A', quick_approvable: true }),
     })
 
-  it('처음에는 메뉴가 닫혀 있고, 승인 대기 탭에 마우스를 올리면 "승인 대기 / 빠른 승인"이 건수와 함께 뜬다', async () => {
+  it('탭은 이 네 개뿐이고 "직접 작성" 탭과 마우스를 올리면 뜨는 메뉴는 없다', async () => {
     setup()
     renderApp()
     await screen.findByRole('heading', { name: '문의 #5' })
+    expect(screen.getAllByRole('tab').map((t) => t.textContent.replace(/\s+/g, ' '))).toEqual(['전체 6', '승인 대기 4', '빠른 승인 2', '처리 완료 2'])
+    expect(screen.queryByRole('tab', { name: /직접 작성/ })).not.toBeInTheDocument()
+    await userEvent.hover(tab('승인 대기'))
+    await userEvent.hover(tab('빠른 승인'))
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-
-    const menu = await openMenu()
-    const radios = within(menu).getAllByRole('menuitemradio')
-    expect(radios.map(radioText)).toEqual(['승인 대기 3', '빠른 승인 2'])
-    expect(radios.map((r) => r.getAttribute('aria-checked'))).toEqual(['true', 'false']) // 처음은 승인 대기
-
-    await userEvent.unhover(awaitingTab())
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
   })
 
-  it('다른 탭(전체, 직접 작성, 처리 완료)에는 메뉴가 없다', async () => {
+  it('승인 대기 탭에는 직접 작성 상태의 문의도 함께 보인다 (처리할 일을 한 탭에 모음)', async () => {
     setup()
     renderApp()
     await screen.findByRole('heading', { name: '문의 #5' })
-    await userEvent.hover(screen.getByRole('tab', { name: /^전체/ }))
-    await userEvent.hover(screen.getByRole('tab', { name: /^직접 작성/ }))
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    await userEvent.click(tab('승인 대기'))
+    expect(order()).toEqual(['빠른 승인 가능 A', '확인이 필요한 문의', '직접 작성할 문의', '빠른 승인 가능 B'])
+    expect(tabText('승인 대기')).toBe('승인 대기 4') // 건수에도 포함
+    // 목록의 상태 표시는 그대로 "직접 작성"이다
+    const manualRow = within(screen.getByRole('list', { name: '문의 목록' })).getByText('직접 작성할 문의').closest('button')
+    expect(within(manualRow).getByText('직접 작성')).toBeInTheDocument()
   })
 
-  it('키보드로 탭에 초점이 가도 메뉴가 열리고, 초점이 밖으로 나가면 닫힌다', async () => {
-    setup()
-    renderApp()
-    await screen.findByRole('heading', { name: '문의 #5' })
-    awaitingTab().focus()
-    expect(await screen.findByRole('menu', { name: '승인 대기 보기 방식' })).toBeInTheDocument()
-    screen.getByRole('tab', { name: /^전체/ }).focus()
-    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
-  })
-
-  it('"빠른 승인"을 고르면 빠른 승인 가능한 문의만 보이고, 탭 이름이 "빠른 승인"으로 바뀐다', async () => {
+  it('빠른 승인 탭을 누르면 빠른 승인 가능한 문의만 보이고 탭이 선택된다', async () => {
     setup()
     renderApp()
     await screen.findByRole('heading', { name: '문의 #5' })
     await chooseQuick()
-
     expect(order()).toEqual(['빠른 승인 가능 A', '빠른 승인 가능 B'])
-    expect(awaitingTab().textContent.replace(/\s+/g, ' ')).toBe('빠른 승인 2')
-    expect(awaitingTab()).toHaveAttribute('aria-selected', 'true')
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument() // 고르면 메뉴는 닫힌다
+    expect(tab('빠른 승인')).toHaveAttribute('aria-selected', 'true')
+    expect(tab('승인 대기')).toHaveAttribute('aria-selected', 'false')
+    expect(tabText('빠른 승인')).toBe('빠른 승인 2')
     // 보고 있던 문의는 그대로 열려 있다
     expect(screen.getByRole('heading', { name: '문의 #5' })).toBeInTheDocument()
   })
 
-  it('"승인 대기"를 다시 고르면 승인 대기 문의 전체가 보인다', async () => {
+  it('다른 탭으로 옮기면 그 탭의 문의가 보인다', async () => {
     setup()
     renderApp()
     await screen.findByRole('heading', { name: '문의 #5' })
     await chooseQuick()
-    const menu = await openMenu()
-    await userEvent.click(within(menu).getByRole('menuitemradio', { name: /^승인 대기/ }))
-    expect(order()).toEqual(['빠른 승인 가능 A', '확인이 필요한 문의', '빠른 승인 가능 B'])
-    expect(awaitingTab().textContent.replace(/\s+/g, ' ')).toBe('승인 대기 3')
-  })
-
-  it('빠른 승인 보기에서 그 탭을 다시 눌러도 빠른 승인 보기가 그대로이고, 다른 탭에 갔다 오면 승인 대기부터 시작한다', async () => {
-    setup()
-    renderApp()
-    await screen.findByRole('heading', { name: '문의 #5' })
-    await chooseQuick()
-    await userEvent.click(awaitingTab())
-    expect(order()).toEqual(['빠른 승인 가능 A', '빠른 승인 가능 B'])
-
-    await userEvent.click(screen.getByRole('tab', { name: /^전체/ }))
+    await userEvent.click(tab('처리 완료'))
+    expect(order()).toEqual(['완료된 최신 문의', '완료된 오래된 문의'])
+    await userEvent.click(tab('전체'))
     expect(order()).toHaveLength(6)
-    await userEvent.click(awaitingTab())
-    expect(order()).toEqual(['빠른 승인 가능 A', '확인이 필요한 문의', '빠른 승인 가능 B'])
-    expect(awaitingTab().textContent.replace(/\s+/g, ' ')).toBe('승인 대기 3')
   })
 
   it('승인 대기 문의 중 빠른 승인 가능한 것에만 노란 "승인 대기" 옆에 "빠른 승인" 표시가 붙는다', async () => {
@@ -134,7 +101,7 @@ describe('승인 대기 탭의 "승인 대기 / 빠른 승인" 선택', () => {
     expect([...badges.children].map((el) => el.textContent)).toEqual(['승인 대기', '빠른 승인'])
   })
 
-  it('빠른 승인 가능한 문의가 없으면 안내를 보여 주고 [빠른 승인] 버튼은 누를 수 없다', async () => {
+  it('빠른 승인 가능한 문의가 없으면 안내를 보여 주고 [일괄 승인] 버튼은 누를 수 없다', async () => {
     mockServer({
       'GET /api/auth/me': agent,
       'GET /api/inquiries': MIXED.map((i) => ({ ...i, quick_approvable: false })),
@@ -144,11 +111,11 @@ describe('승인 대기 탭의 "승인 대기 / 빠른 승인" 선택', () => {
     await screen.findByRole('heading', { name: '문의 #5' })
     await chooseQuick()
     expect(screen.getByText('빠른 승인할 수 있는 문의가 없습니다.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '빠른 승인' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '일괄 승인' })).toBeDisabled()
   })
 })
 
-describe('빠른 승인 목록 전체를 한 번에 승인', () => {
+describe('일괄 승인: 빠른 승인 탭의 문의 전부를 한 번에 승인', () => {
   // 승인 요청이 가면 그 문의들이 처리 완료로 바뀐 목록을 돌려주는 가짜 서버
   const setup = ({ quickResponse } = {}) => {
     const state = { approved: false }
@@ -169,13 +136,13 @@ describe('빠른 승인 목록 전체를 한 번에 승인', () => {
     return { server, state }
   }
 
-  it('[빠른 승인]은 빠른 승인 보기에서만, 문의 목록 오른쪽 위(정렬 옆)에 보인다', async () => {
+  it('[일괄 승인]은 빠른 승인 탭에서만, 문의 목록 오른쪽 위(정렬 옆)에 보인다', async () => {
     setup()
     renderApp()
     await screen.findByRole('heading', { name: '문의 #5' })
-    expect(screen.queryByRole('button', { name: '빠른 승인' })).not.toBeInTheDocument() // 승인 대기 보기에서는 없다
+    expect(screen.queryByRole('button', { name: '일괄 승인' })).not.toBeInTheDocument() // 다른 탭에서는 없다
     await chooseQuick()
-    const button = screen.getByRole('button', { name: '빠른 승인' })
+    const button = screen.getByRole('button', { name: '일괄 승인' })
     expect(button).toBeEnabled()
     const head = button.closest('.side-head')
     expect(head).toContainElement(screen.getByRole('combobox', { name: '정렬' }))
@@ -187,9 +154,9 @@ describe('빠른 승인 목록 전체를 한 번에 승인', () => {
     renderApp()
     await screen.findByRole('heading', { name: '문의 #5' })
     await chooseQuick()
-    await userEvent.click(screen.getByRole('button', { name: '빠른 승인' }))
+    await userEvent.click(screen.getByRole('button', { name: '일괄 승인' }))
 
-    const dialog = within(screen.getByRole('dialog', { name: '빠른 승인' }))
+    const dialog = within(screen.getByRole('dialog', { name: '일괄 승인' }))
     expect(dialog.getByText(/2건/, { selector: 'strong' })).toBeInTheDocument()
     expect(dialog.getByText(/초안 그대로 한 번에 승인/)).toBeInTheDocument()
     expect(dialog.getByText(/실제로 발송되지 않습니다/)).toBeInTheDocument()
@@ -200,13 +167,13 @@ describe('빠른 승인 목록 전체를 한 번에 승인', () => {
     expect(server.called('POST', '/api/inquiries/quick-approve')).toHaveLength(0)
   })
 
-  it('"N건 승인"을 누르면 목록의 문의(번호와 version)를 서버에 보내고, 결과를 보여 준 뒤 목록과 열린 문의를 새로 불러온다', async () => {
+  it('"N건 일괄 승인"을 누르면 목록의 문의(번호와 version)를 서버에 보내고, 결과를 보여 준 뒤 목록과 열린 문의를 새로 불러온다', async () => {
     const { server } = setup()
     renderApp()
     await screen.findByRole('heading', { name: '문의 #5' })
     await chooseQuick()
-    await userEvent.click(screen.getByRole('button', { name: '빠른 승인' }))
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '2건 승인' }))
+    await userEvent.click(screen.getByRole('button', { name: '일괄 승인' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '2건 일괄 승인' }))
 
     expect(await screen.findByText('2건 승인했습니다.')).toBeInTheDocument()
     expect(server.called('POST', '/api/inquiries/quick-approve')[0].body).toEqual({
@@ -221,7 +188,7 @@ describe('빠른 승인 목록 전체를 한 번에 승인', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     // 승인된 문의는 빠른 승인 목록에서 빠지고, 열려 있던 문의는 처리 완료로 바뀌어 보인다
     expect(screen.getByText('빠른 승인할 수 있는 문의가 없습니다.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '빠른 승인' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '일괄 승인' })).toBeDisabled()
     expect(await within(screen.getByRole('article')).findByRole('button', { name: '다시 수정' })).toBeInTheDocument()
     expect(server.called('GET', '/api/inquiries').length).toBeGreaterThanOrEqual(2)
   })
@@ -236,8 +203,8 @@ describe('빠른 승인 목록 전체를 한 번에 승인', () => {
     renderApp()
     await screen.findByRole('heading', { name: '문의 #5' })
     await chooseQuick()
-    await userEvent.click(screen.getByRole('button', { name: '빠른 승인' }))
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '2건 승인' }))
+    await userEvent.click(screen.getByRole('button', { name: '일괄 승인' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '2건 일괄 승인' }))
 
     expect(await screen.findByText('1건 승인했습니다.')).toBeInTheDocument()
     expect(screen.getByText('· 1건은 건너뛰었습니다.')).toBeInTheDocument()
@@ -260,11 +227,11 @@ describe('빠른 승인 목록 전체를 한 번에 승인', () => {
     renderApp()
     await screen.findByRole('heading', { name: '문의 #5' })
     await chooseQuick()
-    await userEvent.click(screen.getByRole('button', { name: '빠른 승인' }))
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '2건 승인' }))
+    await userEvent.click(screen.getByRole('button', { name: '일괄 승인' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '2건 일괄 승인' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('승인하지 못했습니다.')
-    const retry = within(screen.getByRole('dialog')).getByRole('button', { name: '2건 승인' })
+    const retry = within(screen.getByRole('dialog')).getByRole('button', { name: '2건 일괄 승인' })
     expect(retry).toBeEnabled()
     await userEvent.click(retry)
     expect(await screen.findByText('2건 승인했습니다.')).toBeInTheDocument()
@@ -387,10 +354,10 @@ describe('승인하면 다음 문의로 자동 이동', () => {
     renderApp()
     await screen.findByRole('heading', { name: '문의 #4' })
     await userEvent.click(screen.getByRole('tab', { name: /^승인 대기/ }))
-    expect(order()).toEqual(['A 문의', 'D 문의'])
+    expect(order()).toEqual(['A 문의', 'B 직접 작성 문의', 'D 문의']) // 직접 작성 상태도 이 탭에 함께 있다
     await userEvent.click(article().getByRole('button', { name: '승인' }))
-    expect(await screen.findByRole('heading', { name: '문의 #1' })).toBeInTheDocument()
-    expect(order()).toEqual(['D 문의']) // 승인한 문의는 이 탭에서 빠졌다
+    expect(await screen.findByRole('heading', { name: '문의 #3' })).toBeInTheDocument() // 바로 아래 문의가 열린다
+    expect(order()).toEqual(['B 직접 작성 문의', 'D 문의']) // 승인한 문의는 이 탭에서 빠졌다
   })
 
   it('승인이 충돌(다른 상담사가 먼저 처리)로 실패하면 넘어가지 않고 최신 상태를 보여 준다', async () => {

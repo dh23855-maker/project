@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../api.js'
 
-// 빠른 승인 목록(보이는 문의 모두)을 초안 그대로 한 번에 승인한다.
+// 일괄 승인: 빠른 승인 탭의 목록(보이는 문의 모두)을 초안 그대로 한 번에 승인한다.
 // 여러 건이 한꺼번에 나가므로 누르면 먼저 확인 창을 띄운다. 서버가 문의마다 조건을 다시 확인해서,
 // 그 사이 조건이 달라졌거나 다른 상담사가 처리한 문의는 건너뛰고 이유를 알려 준다.
 export default function QuickApprove({ items, onDone }) {
@@ -41,22 +41,22 @@ export default function QuickApprove({ items, onDone }) {
         onClick={() => setPhase('confirm')}
         disabled={count === 0}
       >
-        빠른 승인
+        일괄 승인
       </button>
 
       {phase !== 'closed' &&
         createPortal(
           <div className="modal-backdrop" role="presentation">
-            <div className="modal" role="dialog" aria-modal="true" aria-label="빠른 승인">
-              <h2>빠른 승인</h2>
+            <div className="modal" role="dialog" aria-modal="true" aria-label="일괄 승인">
+              <h2>일괄 승인</h2>
 
               {(phase === 'confirm' || phase === 'running') && (
                 <>
                   <p>
-                    빠른 승인 목록의 문의 <strong>{count}건</strong>을 초안 그대로 한 번에 승인합니다.
+                    빠른 승인 탭의 문의 <strong>{count}건</strong>을 초안 그대로 한 번에 승인합니다.
                   </p>
                   <ul className="modal-guide">
-                    <li>확신도 90% 초과, 규정 문서를 참고했고, 위험 표현 경고가 없는 초안만 목록에 있습니다.</li>
+                    <li>확신도 90% 초과, 규정 문서를 참고했고, 위험 표현 경고가 없는 초안만 빠른 승인 탭에 있습니다.</li>
                     <li>승인한 문의는 처리 완료가 되고 작업 기록에 "승인"으로 남습니다.</li>
                     <li>승인한 뒤에도 문의를 열어 [다시 수정]으로 답장을 고칠 수 있습니다.</li>
                     <li>승인해도 답장은 고객에게 실제로 발송되지 않습니다.</li>
@@ -77,7 +77,7 @@ export default function QuickApprove({ items, onDone }) {
                       취소
                     </button>
                     <button type="button" className="btn btn-primary" onClick={start} disabled={phase === 'running'}>
-                      {count}건 승인
+                      {count}건 일괄 승인
                     </button>
                   </div>
                 </>

@@ -563,7 +563,7 @@ describe('받은 문의: 상태별 보기', () => {
     ])
     expect(tab('전체')).toHaveAttribute('aria-selected', 'true')
     const names = screen.getAllByRole('tab').map((t) => t.textContent.replace(/\s+/g, ' '))
-    expect(names).toEqual(['전체 5', '승인 대기 2', '직접 작성 1', '처리 완료 2'])
+    expect(names).toEqual(['전체 5', '승인 대기 3', '빠른 승인 0', '처리 완료 2'])
     expect(screen.getByRole('combobox', { name: '정렬' })).toHaveTextContent('최신순')
   })
 
@@ -573,26 +573,28 @@ describe('받은 문의: 상태별 보기', () => {
     await screen.findByRole('heading', { name: '문의 #4' })
 
     await userEvent.click(tab('승인 대기'))
-    expect(order()).toEqual(['대기 중 나중에 온 문의', '대기 중 먼저 온 문의'])
+    expect(order()).toEqual(['대기 중 나중에 온 문의', '직접 작성할 문의', '대기 중 먼저 온 문의']) // 직접 작성 상태도 함께
     expect(tab('승인 대기')).toHaveAttribute('aria-selected', 'true')
     expect(tab('전체')).toHaveAttribute('aria-selected', 'false')
 
     await userEvent.click(tab('처리 완료'))
     expect(order()).toEqual(['완료된 최신 문의', '완료된 오래된 문의'])
 
-    await userEvent.click(tab('직접 작성'))
-    expect(order()).toEqual(['직접 작성할 문의'])
+    await userEvent.click(tab('빠른 승인'))
+    expect(screen.queryByRole('list', { name: '문의 목록' })).not.toBeInTheDocument() // 빠른 승인 조건을 만족하는 문의가 없다
 
     await userEvent.click(tab('전체'))
     expect(order()).toHaveLength(5)
   })
 
   it('해당하는 문의가 없는 탭은 안내 문구를 보여 준다', async () => {
-    setup(mixed.filter((i) => i.status !== 'manual'))
+    setup(mixed.filter((i) => i.status !== 'done'))
     renderApp()
     await screen.findByRole('heading', { name: '문의 #4' })
-    await userEvent.click(tab('직접 작성'))
+    await userEvent.click(tab('처리 완료'))
     expect(screen.getByText('이 상태의 문의가 없습니다.')).toBeInTheDocument()
+    await userEvent.click(tab('빠른 승인'))
+    expect(screen.getByText('빠른 승인할 수 있는 문의가 없습니다.')).toBeInTheDocument()
   })
 
   it('탭을 바꿔도 보고 있던 문의는 오른쪽에 그대로 열려 있다', async () => {
@@ -650,14 +652,14 @@ describe('받은 문의: 정렬', () => {
     renderApp()
     await screen.findByRole('heading', { name: '문의 #4' })
     await userEvent.click(screen.getByRole('tab', { name: /^승인 대기/ }))
-    expect(order()).toEqual(['대기 중 나중에 온 문의', '대기 중 먼저 온 문의'])
+    expect(order()).toEqual(['대기 중 나중에 온 문의', '직접 작성할 문의', '대기 중 먼저 온 문의'])
     await pickOption('정렬', '오래된순')
-    expect(order()).toEqual(['대기 중 먼저 온 문의', '대기 중 나중에 온 문의'])
+    expect(order()).toEqual(['대기 중 먼저 온 문의', '직접 작성할 문의', '대기 중 나중에 온 문의'])
     // 다른 탭으로 옮겨도 고른 정렬은 그대로이고 탭 건수는 바뀌지 않는다
     await userEvent.click(screen.getByRole('tab', { name: /^처리 완료/ }))
     expect(order()).toEqual(['완료된 오래된 문의', '완료된 최신 문의'])
     expect(screen.getByRole('combobox', { name: '정렬' })).toHaveTextContent('오래된순')
-    expect(screen.getAllByRole('tab').map((t) => t.textContent.replace(/\s+/g, ' '))).toEqual(['전체 5', '승인 대기 2', '직접 작성 1', '처리 완료 2'])
+    expect(screen.getAllByRole('tab').map((t) => t.textContent.replace(/\s+/g, ' '))).toEqual(['전체 5', '승인 대기 3', '빠른 승인 0', '처리 완료 2'])
   })
 
   it('정렬을 바꿔도 보고 있던 문의는 그대로 선택되어 있다', async () => {

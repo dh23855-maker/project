@@ -10,7 +10,13 @@ const AGENTS = [
   { username: 'lee', name: '이상담' },
 ]
 const AGENT_OPTIONS = [{ value: '', label: '전체' }, ...AGENTS.map((a) => ({ value: a.username, label: a.name }))]
-const ACTION_OPTIONS = [{ value: '', label: '전체' }, ...Object.entries(ACTION_LABEL).map(([value, label]) => ({ value, label }))]
+// 행동 필터에는 "직접 작성"을 두지 않는다 (직접 작성한 기록은 "전체"에서 계속 보인다)
+const ACTION_OPTIONS = [
+  { value: '', label: '전체' },
+  ...Object.entries(ACTION_LABEL)
+    .filter(([value]) => value !== 'manual_write')
+    .map(([value, label]) => ({ value, label })),
+]
 
 // 작업 기록: 누가, 언제, 무엇을 했는지. 상담사와 행동으로 거를 수 있다.
 export default function LogsPage() {
