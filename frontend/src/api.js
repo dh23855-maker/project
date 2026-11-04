@@ -80,6 +80,10 @@ export const api = {
   rewrite: (id, version) => request('POST', `/api/inquiries/${id}/rewrite`, { version }),
   handoff: (id, version) => request('POST', `/api/inquiries/${id}/handoff`, { version }),
   manualReply: (id, version, text) => request('POST', `/api/inquiries/${id}/manual-reply`, { version, text }),
+  // 빠른 승인: items = [{ id, version }]. 서버가 문의마다 조건을 다시 확인해 승인하거나 건너뛴다.
+  quickApprove: (items) => request('POST', '/api/inquiries/quick-approve', { items }),
+  // 비슷한 지난 문의 (처리 완료된 문의와 그 최종 답장)
+  getSimilar: (id) => request('GET', `/api/inquiries/${id}/similar`),
 
   // 위험 표현, 설정
   riskCheck: (text) => request('POST', '/api/risk-check', { text }),

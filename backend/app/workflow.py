@@ -86,6 +86,31 @@ def approve(conn, policy, agent, inquiry_id, version):
     return inq.get_detail(conn, policy, inquiry_id)
 
 
+def quick_approve(conn, policy, agent, items):
+    """빠른 승인: 상담사가 목록에서 본 문의들을 초안 그대로 한 번에 승인한다.
+
+    문의마다 (1) 상담사가 본 version이 지금과 같고 (2) 빠른 승인 조건을 아직 만족할 때만 승인한다.
+    그렇지 않은 문의는 건너뛰고 이유를 알려 준다. 문의마다 따로 저장해서(savepoint) 하나가 안 돼도
+    나머지는 승인된다. 승인한 문의는 [승인]을 누른 것과 똑같이 작업 기록에 '승인'으로 남는다.
+    """
+    if not items:
+        raise WorkflowError(400, "빠른 승인할 문의가 없습니다.")
+    approved, skipped = [], []
+    for inquiry_id, version in items:
+        try:
+            with conn.transaction():
+                row = _lock(conn, policy, inquiry_id, version)
+                if row["status"] != "awaiting_approval":
+                    raise WorkflowError(409, "이미 처리된 문의입니다.")
+                if inquiry_id not in inq.quick_approvable_ids(conn, [inquiry_id]):
+                    raise WorkflowError(409, "빠른 승인 조건을 더 이상 만족하지 않습니다.")
+                approve(conn, policy, agent, inquiry_id, version)
+            approved.append(inquiry_id)
+        except WorkflowError as e:
+            skipped.append({"id": inquiry_id, "reason": e.message})
+    return {"approved": approved, "skipped": skipped}
+
+
 def edit(conn, policy, agent, inquiry_id, version, text):
     """승인 대기 문의의 초안을 고쳐 저장하면 바로 처리 완료('수정하여 승인').
     처리 완료된 문의는 최종 답장만 고친다('다시 수정'). 상태는 처리 완료 그대로다."""

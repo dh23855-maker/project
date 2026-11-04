@@ -752,7 +752,8 @@ describe('규정 문서에는 없음', () => {
     expect(buttonNames()).toEqual(['승인', '수정', '재작성'])
   })
 
-  it('일부만 근거가 있으면 규정 문서와 함께 없는 내용을 보여 준다', async () => {
+  // 서버는 규정 문서를 하나라도 참고한 초안에는 uncovered_note를 보내지 않는다. 화면은 서버가 준 안내를 그대로 보여 준다.
+  it('서버가 안내(uncovered_note)를 주면 규정 문서와 함께 그대로 보여 준다', async () => {
     const draft = { ...makeDraft(), uncovered_note: '입금 예정일은 규정 문서에 없습니다.' }
     mockServer(baseRoutes(makeDetail({ drafts: [draft], current_draft: draft })))
     renderApp()

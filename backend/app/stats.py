@@ -59,11 +59,11 @@ def inquiry_stats(conn, days=DEFAULT_DAYS):
                EXTRACT(HOUR FROM (i.created_at AT TIME ZONE '{TIMEZONE}'))::int AS hour,
                i.predicted_label, i.confidence, i.status, i.rewrite_count,
                EXTRACT(EPOCH FROM (i.resolved_at - i.created_at)) / 60.0 AS minutes_to_resolve,
-               d.uncovered_note, (d.inquiry_id IS NOT NULL) AS has_draft,
+               d.cited_count, (d.inquiry_id IS NOT NULL) AS has_draft,
                a.action AS last_action
         FROM inquiries i
         LEFT JOIN LATERAL (
-            SELECT inquiry_id, uncovered_note FROM drafts
+            SELECT inquiry_id, jsonb_array_length(cited_articles) AS cited_count FROM drafts
             WHERE inquiry_id = i.id ORDER BY draft_no DESC LIMIT 1
         ) d ON true
         LEFT JOIN LATERAL (
@@ -77,8 +77,8 @@ def inquiry_stats(conn, days=DEFAULT_DAYS):
 
     for r in rows:
         r["code"] = r["predicted_label"] or UNCLASSIFIED
-        # 지금 초안이 규정 문서에 없는 내용을 알리고 있는가 (초안이 있는 문의만 말할 수 있다)
-        r["uncovered"] = bool(r["has_draft"] and (r["uncovered_note"] or "").strip())
+        # 지금 초안이 규정 문서를 하나도 참고하지 못했는가 = "규정 문서에는 없음" (초안이 있는 문의만 말할 수 있다)
+        r["uncovered"] = bool(r["has_draft"] and r["cited_count"] == 0)
         # 확신도가 기준값보다 낮거나 분류를 못 한 문의
         r["low"] = r["confidence"] is None or round(r["confidence"] * 100, 6) < threshold
 

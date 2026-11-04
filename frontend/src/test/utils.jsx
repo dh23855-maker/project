@@ -60,6 +60,7 @@ export function makeDetail(overrides = {}) {
     created_by_name: null,
     version: 0,
     created_at: '2026-11-02T09:00:00+09:00',
+    quick_approvable: false,
     drafts: [draft],
     current_draft: draft,
     evidence: [

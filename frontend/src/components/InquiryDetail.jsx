@@ -5,6 +5,7 @@ import EvidenceList from './EvidenceList.jsx'
 import { StatusBadge } from './InquiryList.jsx'
 import ReplyEditor from './ReplyEditor.jsx'
 import RiskWarnings from './RiskWarnings.jsx'
+import SimilarPast from './SimilarPast.jsx'
 
 // 한 문의를 한 화면에서 처리한다: 문의 내용, 분류 결과, 초안, 근거, 버튼.
 // 어떤 버튼을 보여줄지는 서버가 알려 준 detail.actions를 그대로 따른다.
@@ -108,13 +109,16 @@ export default function InquiryDetail({ detail, busyText, handlers, scrollRoot =
           <section className="block">
             <h3>{isSecondDraft ? '답장 초안 (재작성한 초안)' : '답장 초안'}</h3>
             {editing ? (
-              <ReplyEditor
-                initial={draft.content}
-                submitLabel="저장"
-                busy={busy}
-                onSubmit={handlers.onEdit}
-                onCancel={() => setEditing(false)}
-              />
+              <>
+                <ReplyEditor
+                  initial={draft.content}
+                  submitLabel="저장"
+                  busy={busy}
+                  onSubmit={handlers.onEdit}
+                  onCancel={() => setEditing(false)}
+                />
+                <SimilarPast inquiryId={detail.id} />
+              </>
             ) : (
               <>
                 <p className="draft-text">{draft.content}</p>
@@ -154,6 +158,7 @@ export default function InquiryDetail({ detail, busyText, handlers, scrollRoot =
             placeholder="고객에게 보낼 답장을 입력하세요"
             onSubmit={handlers.onManualReply}
           />
+          <SimilarPast inquiryId={detail.id} />
         </section>
       )}
 
@@ -162,13 +167,16 @@ export default function InquiryDetail({ detail, busyText, handlers, scrollRoot =
           <section className="block">
             <h3>최종 답장</h3>
             {editing ? (
-              <ReplyEditor
-                initial={detail.final_reply ?? ''}
-                submitLabel="저장"
-                busy={busy}
-                onSubmit={handlers.onEdit}
-                onCancel={() => setEditing(false)}
-              />
+              <>
+                <ReplyEditor
+                  initial={detail.final_reply ?? ''}
+                  submitLabel="저장"
+                  busy={busy}
+                  onSubmit={handlers.onEdit}
+                  onCancel={() => setEditing(false)}
+                />
+                <SimilarPast inquiryId={detail.id} />
+              </>
             ) : (
               <>
                 <p className="draft-text">{detail.final_reply}</p>

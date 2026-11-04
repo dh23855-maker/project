@@ -42,6 +42,7 @@ class InquiryOut(BaseModel):
     created_by_name: str | None
     version: int
     created_at: datetime
+    quick_approvable: bool = False  # 빠른 승인 조건을 모두 만족하는 승인 대기 문의
 
 
 class DraftOut(BaseModel):
@@ -84,6 +85,37 @@ class VersionIn(BaseModel):
 
 class ReplyIn(VersionIn):
     text: str | None = None
+
+
+class QuickApproveItem(VersionIn):
+    id: int
+
+
+class QuickApproveIn(BaseModel):
+    items: list[QuickApproveItem] = []
+
+
+class QuickSkipped(BaseModel):
+    id: int
+    reason: str
+
+
+class QuickApproveOut(BaseModel):
+    approved: list[int]
+    skipped: list[QuickSkipped]
+
+
+class SimilarItem(BaseModel):
+    id: int
+    body: str
+    predicted_label_ko: str | None
+    final_reply: str
+    resolved_at: datetime | None
+    similarity_percent: float
+
+
+class SimilarOut(BaseModel):
+    items: list[SimilarItem]
 
 
 class ThresholdIn(BaseModel):

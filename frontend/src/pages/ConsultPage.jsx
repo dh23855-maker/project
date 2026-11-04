@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../api.js'
 import InquiryDetail from '../components/InquiryDetail.jsx'
-import InquiryList, { DEFAULT_FILTER, DEFAULT_SORT, SORT_OPTIONS, StatusTabs } from '../components/InquiryList.jsx'
+import InquiryList, {
+  DEFAULT_FILTER,
+  DEFAULT_SORT,
+  QUICK_FILTER,
+  SORT_OPTIONS,
+  StatusTabs,
+  filterInquiries,
+} from '../components/InquiryList.jsx'
 import BatchUpload from '../components/BatchUpload.jsx'
 import NewInquiryForm from '../components/NewInquiryForm.jsx'
+import QuickApprove from '../components/QuickApprove.jsx'
 
 const SIDE_KEY = 'consult-side-width'
 export const SIDE_DEFAULT = 440
@@ -92,19 +100,42 @@ export default function ConsultPage() {
     }
   }, [selectedId])
 
+  // 다른 문의를 열면 내용 칸을 맨 위부터 보여 준다
+  useEffect(() => {
+    if (scrollEl) scrollEl.scrollTop = 0
+  }, [detail?.id, scrollEl])
+
   function select(id) {
     setNotice(null)
     setSelectedId(id)
   }
 
+  // 처리를 끝낸 뒤 이어서 열 문의: 지금 목록(탭·정렬 그대로)에서 아래쪽의 아직 처리 안 한 문의,
+  // 아래에 없으면 위쪽에서 가장 가까운 것. 없으면 null (그 자리에 머문다).
+  function nextPendingId() {
+    const shown = filterInquiries(items, filter, sort)
+    const index = shown.findIndex((item) => item.id === detail.id)
+    const pending = (item) => item.status !== 'done' && item.id !== detail.id
+    const below = shown.slice(index + 1).find(pending)
+    const above = shown.slice(0, Math.max(index, 0)).reverse().find(pending)
+    return (below ?? above)?.id ?? null
+  }
+
   // 버튼 하나를 실행한다. 충돌(409)이면 서버가 돌려준 최신 상태로 화면을 바꾼다.
-  async function run(pendingText, action, successText) {
+  // advance가 true이면 처리가 끝난 뒤 다음 문의로 자동으로 넘어간다.
+  async function run(pendingText, action, successText, { advance = false } = {}) {
+    const nextId = advance ? nextPendingId() : null
     setBusyText(pendingText)
     setNotice(null)
     try {
       const result = await action()
-      setDetail(result)
-      setNotice({ kind: 'success', text: successText })
+      if (nextId != null) {
+        setNotice({ kind: 'success', text: `${successText} 다음 문의 #${nextId}로 이동했습니다.` })
+        setSelectedId(nextId)
+      } else {
+        setDetail(result)
+        setNotice({ kind: 'success', text: successText })
+      }
       await refreshList()
     } catch (e) {
       if (e instanceof ApiError && e.inquiry) {
@@ -155,15 +186,32 @@ export default function ConsultPage() {
   }
 
   const handlers = detail && {
-    onApprove: () => run('승인하는 중...', () => api.approve(detail.id, detail.version), '승인했습니다.'),
+    onApprove: () =>
+      run('승인하는 중...', () => api.approve(detail.id, detail.version), '승인했습니다.', { advance: true }),
+    // 승인 대기 문의를 고쳐 저장하면 처리가 끝나므로 다음으로 넘어간다. 처리 완료 문의의 [다시 수정]은 그 자리에 머문다.
     onEdit: (text) =>
-      run('저장하는 중...', () => api.edit(detail.id, detail.version, text), '고친 답장을 저장했습니다.'),
+      run('저장하는 중...', () => api.edit(detail.id, detail.version, text), '고친 답장을 저장했습니다.', {
+        advance: detail.status === 'awaiting_approval',
+      }),
     onRewrite: () =>
       run('새 초안을 만드는 중... (몇 초 걸립니다)', () => api.rewrite(detail.id, detail.version), '새 초안을 만들었습니다.'),
     onHandoff: () =>
       run('넘기는 중...', () => api.handoff(detail.id, detail.version), '직접 작성으로 넘겼습니다.'),
     onManualReply: (text) =>
-      run('등록하는 중...', () => api.manualReply(detail.id, detail.version, text), '답장을 등록했습니다.'),
+      run('등록하는 중...', () => api.manualReply(detail.id, detail.version, text), '답장을 등록했습니다.', {
+        advance: true,
+      }),
+  }
+
+  // 빠른 승인이 끝나면 목록을 새로 받고, 열어 둔 문의가 승인되었을 수 있으니 그것도 새로 받는다
+  async function quickApproved() {
+    await refreshList()
+    if (selectedId == null) return
+    try {
+      setDetail(await api.getInquiry(selectedId))
+    } catch {
+      // 못 받아도 목록은 이미 새로 고쳤다
+    }
   }
 
   async function created(inquiry) {
@@ -180,6 +228,11 @@ export default function ConsultPage() {
         <div className="side-head">
           <h2>받은 문의</h2>
           <span className="muted">{items.length}건</span>
+          {filter === QUICK_FILTER && (
+            <span className="side-head-action">
+              <QuickApprove items={filterInquiries(items, QUICK_FILTER, sort)} onDone={quickApproved} />
+            </span>
+          )}
           <select
             className="side-sort-select"
             aria-label="정렬"

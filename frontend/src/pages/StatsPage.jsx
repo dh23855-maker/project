@@ -568,7 +568,7 @@ export default function StatsPage() {
               <section className="card" aria-labelledby="uncovered-title">
                 <h2 id="uncovered-title">규정 문서에는 없음 비율</h2>
                 <p className="muted card-note">
-                  초안이 "규정 문서에는 없음"으로 알린 문의의 비율입니다. 높은 종류일수록 규정 문서를 더 보강해야 합니다.
+                  초안이 규정 문서를 하나도 참고하지 못해 "규정 문서에는 없음"이 된 문의의 비율입니다. 높은 종류일수록 규정 문서를 더 보강해야 합니다.
                 </p>
                 <p className="headline">
                   <span className="headline-value">{percentText(data.overall.uncovered_percent)}</span>

@@ -4,13 +4,15 @@ import logging
 from psycopg.types.json import Jsonb
 
 from app import risk
-from app.drafting import CitationError, DraftError, verify_citations
+from app.drafting import NO_COVERAGE_NOTE, CitationError, DraftError, verify_citations
 from ml.labels import LABEL_KO, LABEL_WHO_KO
 
 logger = logging.getLogger(__name__)
 
 MAX_BODY_LENGTH = 1000
 DEFAULT_THRESHOLD = 70
+# 빠른 승인: 분류 확신도(%)가 이 값을 넘어야 한다 (설정 화면의 기준값과는 별개의 고정값)
+QUICK_APPROVE_MIN_PERCENT = 90
 AUTO_FAIL_NOTE = "자동 처리에 실패해 직접 작성으로 넘어갔습니다."
 BAD_CITATION_NOTE = "초안이 규정 문서에 없는 조항 번호를 근거로 삼아 직접 작성으로 넘어갔습니다."
 CLASSIFY_FAIL_NOTE = "문의 종류를 분류하지 못했습니다. 문의 내용을 직접 확인해 주세요."
@@ -61,6 +63,55 @@ def get_threshold(conn):
     return int(row["value"]) if row else DEFAULT_THRESHOLD
 
 
+def shown_uncovered_note(cited, note):
+    """화면에 띄울 '규정 문서에는 없음' 안내. 초안이 참고한 규정 문서가 하나도 없을 때만 있다.
+
+    규정 문서를 하나라도 참고했으면 None이다. 모델이 "이 부분은 규정에 없다"고 일부만 적은 메모는
+    DB에는 남기지만 화면에는 띄우지 않는다.
+    """
+    if cited:
+        return None
+    return (note or "").strip() or NO_COVERAGE_NOTE
+
+
+def quick_approvable_ids(conn, ids):
+    """빠른 승인 조건을 모두 만족하는 문의 번호들.
+
+    승인 대기 문의의 지금 초안이 (1) 분류 확신도가 90%를 넘고 (2) 규정 문서를 하나라도 참고했고
+    (3) 위험 표현 경고가 없을 때다. 목록 표시와 [빠른 승인]이 같은 기준을 쓰도록 여기서만 계산한다.
+    """
+    if not ids:
+        return set()
+    rows = conn.execute(
+        """
+        SELECT i.id, i.confidence, d.content, jsonb_array_length(d.cited_articles) AS cited_count
+        FROM inquiries i
+        JOIN LATERAL (
+            SELECT content, cited_articles FROM drafts
+            WHERE inquiry_id = i.id ORDER BY draft_no DESC LIMIT 1
+        ) d ON true
+        WHERE i.id = ANY(%s) AND i.status = 'awaiting_approval' AND i.confidence IS NOT NULL
+        """,
+        (list(ids),),
+    ).fetchall()
+    phrases = risk.list_phrases(conn)
+    found = set()
+    for r in rows:
+        if round(r["confidence"] * 100, 6) <= QUICK_APPROVE_MIN_PERCENT:
+            continue
+        if r["cited_count"] == 0 or risk.find_risks(r["content"], phrases):
+            continue
+        found.add(r["id"])
+    return found
+
+
+def _mark_quick(conn, outs):
+    quick = quick_approvable_ids(conn, [o["id"] for o in outs if o["status"] == "awaiting_approval"])
+    for o in outs:
+        o["quick_approvable"] = o["id"] in quick
+    return outs
+
+
 def to_out(row):
     label = row["predicted_label"]
     confidence = row["confidence"]
@@ -82,17 +133,18 @@ def to_out(row):
         "created_by_name": row["created_by_name"],
         "version": row["version"],
         "created_at": row["created_at"],
+        "quick_approvable": False,  # 목록·상세를 만들 때 _mark_quick이 채운다
     }
 
 
 def get_inquiry(conn, inquiry_id):
     row = conn.execute(SELECT_INQUIRY + " WHERE i.id = %s", (inquiry_id,)).fetchone()
-    return to_out(row) if row else None
+    return _mark_quick(conn, [to_out(row)])[0] if row else None
 
 
 def list_inquiries(conn):
     rows = conn.execute(SELECT_INQUIRY + " ORDER BY i.created_at DESC, i.id DESC").fetchall()
-    return [to_out(r) for r in rows]
+    return _mark_quick(conn, [to_out(r) for r in rows])
 
 
 def available_actions(inquiry, has_draft):
@@ -124,7 +176,7 @@ def get_detail(conn, policy, inquiry_id):
             "draft_no": r["draft_no"],
             "content": r["content"],
             "cited": list(r["cited_articles"]),
-            "uncovered_note": r["uncovered_note"],
+            "uncovered_note": shown_uncovered_note(r["cited_articles"], r["uncovered_note"]),
             "created_at": r["created_at"],
         }
         for r in rows

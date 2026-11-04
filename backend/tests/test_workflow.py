@@ -99,11 +99,18 @@ class WorkflowTest(ApiTestBase):
         self.assertEqual(inquiry["actions"], ["approve", "edit", "rewrite"])
         self.assertEqual(self.drafter.calls[0]["clauses"], [])  # 근거 없이 모델을 불렀다
 
-    def test_partly_covered_draft_shows_evidence_and_the_missing_part(self):
+    def test_partly_covered_draft_shows_evidence_but_not_the_missing_part(self):
+        """규정 문서를 하나라도 참고했으면 "규정 문서에는 없음"을 띄우지 않는다. 모델이 적은 일부 메모는 DB에만 남는다."""
         self.drafter.mode = "partial"
         inquiry = self.awaiting(self.login("kim"))
         self.assertTrue(inquiry["evidence"])
-        self.assertEqual(inquiry["current_draft"]["uncovered_note"], PARTIAL_NOTE)
+        self.assertIsNone(inquiry["current_draft"]["uncovered_note"])
+        self.assertIsNone(inquiry["drafts"][0]["uncovered_note"])
+        with self.connect() as conn:
+            stored = conn.execute(
+                "SELECT uncovered_note FROM drafts WHERE inquiry_id = %s", (inquiry["id"],)
+            ).fetchone()["uncovered_note"]
+        self.assertEqual(stored, PARTIAL_NOTE)  # 지우지는 않는다
 
     def test_fully_covered_draft_has_no_uncovered_note(self):
         inquiry = self.awaiting(self.login("kim"))
@@ -290,7 +297,7 @@ class WorkflowTest(ApiTestBase):
         self.assertEqual(third.status_code, 409)
         self.assertIn("1번만", third.json()["detail"])
 
-    def test_rewrite_of_a_draft_without_clauses_searches_again_and_keeps_the_note(self):
+    def test_rewrite_of_a_draft_without_clauses_searches_again_and_drops_the_not_in_policy_mark(self):
         kim = self.login("kim")
         self.drafter.mode = "no_coverage"
         inquiry = self.awaiting(kim)
@@ -298,7 +305,7 @@ class WorkflowTest(ApiTestBase):
         second = self.act(kim, inquiry, "rewrite").json()
         self.assertEqual(second["current_draft"]["draft_no"], 2)
         self.assertTrue(second["current_draft"]["cited"])  # 다시 찾은 규정 문서
-        self.assertEqual(second["current_draft"]["uncovered_note"], PARTIAL_NOTE)
+        self.assertIsNone(second["current_draft"]["uncovered_note"])  # 규정 문서를 참고했으니 "없음"이 아니다
         self.assertEqual(second["drafts"][0]["uncovered_note"], NO_COVERAGE_NOTE)  # 첫 초안은 그대로
 
     def test_failed_rewrite_keeps_the_first_draft_and_is_not_counted(self):

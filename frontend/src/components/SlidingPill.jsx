@@ -11,8 +11,16 @@ export function useSlidingPill(containerRef, selector, selectedKey) {
   const firstRun = useRef(true)
 
   const measure = () => {
-    const active = containerRef.current?.querySelector(selector)
-    setBox(active ? { left: active.offsetLeft, width: active.offsetWidth } : null)
+    const container = containerRef.current
+    const active = container?.querySelector(selector)
+    if (!active) {
+      setBox(null)
+      return
+    }
+    // 항목이 다른 칸(위치가 지정된 묶음) 안에 들어 있어도 container 기준 위치가 되도록 바깥쪽 칸의 위치를 더한다
+    let left = 0
+    for (let el = active; el && el !== container; el = el.offsetParent) left += el.offsetLeft
+    setBox({ left, width: active.offsetWidth })
   }
 
   // 선택이 바뀌면 새 위치를 재고, 첫 그림이 아니면 움직임을 켠다
@@ -20,7 +28,6 @@ export function useSlidingPill(containerRef, selector, selectedKey) {
     setAnimate(!firstRun.current)
     firstRun.current = false
     measure()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKey])
 
   // 창이나 칸 너비가 바뀌거나(예: 목록 너비 조절) 글꼴이 늦게 불러와져 글자 너비가 바뀌면 움직임 없이 다시 잰다.
@@ -46,7 +53,6 @@ export function useSlidingPill(containerRef, selector, selectedKey) {
       window.removeEventListener('resize', remeasure)
       observer?.disconnect()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containerRef, selector])
 
   return { box, animate }

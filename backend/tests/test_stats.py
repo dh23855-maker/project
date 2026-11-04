@@ -165,12 +165,14 @@ class StatsTest(ApiTestBase):
 
     # --- 규정 문서에는 없음 비율 -----------------------------------------------------
 
-    def test_uncovered_rate_counts_only_inquiries_whose_latest_draft_says_so(self):
+    def test_uncovered_rate_counts_only_drafts_that_cited_no_clause(self):
         ids = self.place([(0, "09:00", A), (0, "10:00", A), (0, "11:00", B), (0, "12:00", B)])
-        self.sql("UPDATE drafts SET uncovered_note = NULL WHERE inquiry_id = ANY(%s)", (ids,))
-        self.sql("UPDATE drafts SET uncovered_note = '입금일은 규정 문서에 없습니다.' WHERE inquiry_id = %s", (ids[0],))
-        self.sql("UPDATE drafts SET uncovered_note = '   ' WHERE inquiry_id = %s", (ids[1],))  # 공백만 있으면 없는 것으로 본다
-        self.sql("UPDATE drafts SET uncovered_note = '해당 내용 없음' WHERE inquiry_id = %s", (ids[2],))
+        cited, none = '["RFD-04"]', "[]"
+        self.sql("UPDATE drafts SET uncovered_note = NULL, cited_articles = %s::jsonb WHERE inquiry_id = ANY(%s)", (cited, ids))
+        self.sql("UPDATE drafts SET cited_articles = %s::jsonb WHERE inquiry_id = %s", (none, ids[0]))  # 규정 문서 0개 -> 없음
+        # 규정 문서를 참고했으면, 모델이 일부 없음 메모를 남겼어도 "규정 문서에는 없음"이 아니다
+        self.sql("UPDATE drafts SET uncovered_note = '입금일은 규정 문서에 없습니다.' WHERE inquiry_id = %s", (ids[1],))
+        self.sql("UPDATE drafts SET cited_articles = %s::jsonb, uncovered_note = '   ' WHERE inquiry_id = %s", (none, ids[2]))  # 메모가 비어도 0개면 없음
         body = self.get(7).json()
         self.assertEqual((body["overall"]["drafted"], body["overall"]["uncovered"], body["overall"]["uncovered_percent"]), (4, 2, 50.0))
         by_code = {t["code"]: t for t in body["types"]}
@@ -181,14 +183,14 @@ class StatsTest(ApiTestBase):
 
     def test_uncovered_rate_uses_the_latest_draft_and_skips_inquiries_without_a_draft(self):
         ids = self.place([(0, "09:00", A), (0, "10:00", A), (0, "11:00", A), (0, "12:00", A)])
-        self.sql("UPDATE drafts SET uncovered_note = NULL WHERE inquiry_id = ANY(%s)", (ids,))
-        add_second = "INSERT INTO drafts (inquiry_id, draft_no, content, cited_articles, uncovered_note) VALUES (%s, 2, '새 초안', '[]', %s)"
-        # ids[0]: 처음 초안은 없음 표시, 재작성한 새 초안은 모두 답함 -> 지금은 규정 문서에 답이 있다
-        self.sql("UPDATE drafts SET uncovered_note = '없음' WHERE inquiry_id = %s", (ids[0],))
-        self.sql(add_second, (ids[0], None))
-        # ids[1], ids[2]: 처음엔 답했는데 재작성하니 없음 -> 지금은 없음
-        self.sql(add_second, (ids[1], "없음"))
-        self.sql(add_second, (ids[2], "없음"))
+        self.sql("UPDATE drafts SET uncovered_note = NULL, cited_articles = '[\"RFD-04\"]'::jsonb WHERE inquiry_id = ANY(%s)", (ids,))
+        add_second = "INSERT INTO drafts (inquiry_id, draft_no, content, cited_articles) VALUES (%s, 2, '새 초안', %s::jsonb)"
+        # ids[0]: 처음 초안은 규정 문서 0개, 재작성한 새 초안은 규정 문서를 참고함 -> 지금은 규정 문서에 답이 있다
+        self.sql("UPDATE drafts SET cited_articles = '[]'::jsonb WHERE inquiry_id = %s", (ids[0],))
+        self.sql(add_second, (ids[0], '["RFD-04"]'))
+        # ids[1], ids[2]: 처음엔 규정 문서를 참고했는데 재작성하니 0개 -> 지금은 없음
+        self.sql(add_second, (ids[1], "[]"))
+        self.sql(add_second, (ids[2], "[]"))
         # ids[3]: 초안이 없다 -> 분모에서 빠진다
         self.sql("DELETE FROM drafts WHERE inquiry_id = %s", (ids[3],))
         o = self.get(7).json()["overall"]

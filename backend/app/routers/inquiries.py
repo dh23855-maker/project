@@ -4,7 +4,16 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app import inquiries as service
 from app import workflow
 from app.deps import current_agent, get_conn
-from app.schemas import InquiryCreate, InquiryDetail, InquiryOut, ReplyIn, VersionIn
+from app.schemas import (
+    InquiryCreate,
+    InquiryDetail,
+    InquiryOut,
+    QuickApproveIn,
+    QuickApproveOut,
+    ReplyIn,
+    SimilarOut,
+    VersionIn,
+)
 
 router = APIRouter(prefix="/api/inquiries", tags=["inquiries"])
 
@@ -12,6 +21,26 @@ router = APIRouter(prefix="/api/inquiries", tags=["inquiries"])
 @router.get("", response_model=list[InquiryOut])
 def list_inquiries(agent=Depends(current_agent), conn=Depends(get_conn)):
     return service.list_inquiries(conn)
+
+
+@router.post("/quick-approve", response_model=QuickApproveOut)
+def quick_approve(
+    payload: QuickApproveIn, request: Request, agent=Depends(current_agent), conn=Depends(get_conn)
+):
+    items = [(item.id, item.version) for item in payload.items]
+    result = workflow.quick_approve(conn, request.app.state.policy, agent, items)
+    conn.commit()
+    return result
+
+
+@router.get("/{inquiry_id}/similar", response_model=SimilarOut)
+def similar_inquiries(
+    inquiry_id: int, request: Request, agent=Depends(current_agent), conn=Depends(get_conn)
+):
+    found = request.app.state.similar.find(conn, inquiry_id)
+    if found is None:
+        raise HTTPException(status_code=404, detail="문의를 찾을 수 없습니다.")
+    return {"items": found}
 
 
 @router.get("/{inquiry_id}", response_model=InquiryDetail)

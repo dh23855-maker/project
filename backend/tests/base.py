@@ -18,6 +18,7 @@ from app.main import create_app
 from app.migrate import apply_migrations
 from app.policy import PolicyBook
 from app.seed import PRACTICE_PASSWORD, seed_agents, seed_inquiries, seed_risky_phrases
+from app.similar import SimilarFinder
 from ml.train import model_path, train
 
 COUPON_TEXT = "쿠폰 쓴 주문을 취소하면 쿠폰은 돌려받나요?"  # 취소·환불 문의, RFD-04와 매우 비슷
@@ -90,7 +91,8 @@ class ApiTestBase(unittest.TestCase):
         cls.drafter.calls.clear()
 
         cls.app = create_app(
-            schema=cls.schema, classifier=cls.classifier, policy=cls.policy, drafter=cls.drafter
+            schema=cls.schema, classifier=cls.classifier, policy=cls.policy, drafter=cls.drafter,
+            similar=SimilarFinder(),  # 시험에서는 OpenAI 없이 TF-IDF로 찾는다
         )
         cls._lifespan = TestClient(cls.app)
         cls._lifespan.__enter__()
