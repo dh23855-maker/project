@@ -34,7 +34,7 @@
 
 | 폴더 | 내용 |
 |---|---|
-| `docs/` | 기획 문서: `mvp.md`(쉬운 설명) → `PRD.md`(요구사항) → `spec.md`(기능별 동작 명세) → `plan.md`(5일 개발 계획과 진행 기록) |
+| `docs/` | 기획 문서: `mvp.md`(쉬운 설명) → `PRD.md`(요구사항) → `spec.md`(기능별 동작 명세) → `plan.md`(5일 개발 계획과 진행 기록). 분류와 초안 작성의 원리·시행착오는 `technical.md` |
 | `backend/` | 서버, 분류 모델 학습·평가, 규정 문서, 학습·평가 데이터, 시험 — 사용법은 `backend/README.md` |
 | `frontend/` | 상담사 화면 — 사용법은 `frontend/README.md` |
 | `database/` | 표 만들기 SQL(`schema/`)과 미리 넣는 가짜 데이터(`seed/`) |
