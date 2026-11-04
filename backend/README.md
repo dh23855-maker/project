@@ -67,6 +67,17 @@ DB 시험은 `test_`로 시작하는 임시 영역에 표를 새로 만들어 �
 
 글자 조각(2~3글자) TF-IDF + 로지스틱 회귀입니다. 학습용 문의만 쓴 교차 검증으로 단어 방식(74%)보다 글자 조각 방식(88%)이 낫다고 보고 골랐습니다. 상세는 `ml/train.py` 머리말과 [`docs/technical.md`](../docs/technical.md)(원리, 시행착오, 점수)를 보세요.
 
+## 질문 - 최종 답변 쌍
+
+처리 완료된 문의의 질문과 최종 답장은 DB의 보기 `qa_pairs`로 조회합니다 (복사본이 아니라 `inquiries`를 쌍으로 보여 주는 보기라 항상 최신). Supabase의 Table Editor나 SQL Editor에서 봅니다.
+
+```sql
+SELECT inquiry_id, question, answer, resolution, answered_by, answered_at
+FROM qa_pairs ORDER BY answered_at DESC;
+```
+
+`resolution`은 `approve`(초안 그대로 승인) / `edit`(고쳐서) / `manual_write`(직접 작성)입니다. 보기는 `python -m app.migrate`가 만듭니다 (`database/schema/003_qa_pairs_view.sql`).
+
 ## 폴더
 
 | 폴더 | 내용 |
