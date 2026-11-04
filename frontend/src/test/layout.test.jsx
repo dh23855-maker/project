@@ -233,3 +233,47 @@ describe('버튼 자리(처리 버튼이 글씨를 덮지 않게)', () => {
     expect(screen.getAllByRole('button', { name: '승인' })).toHaveLength(1)
   })
 })
+
+describe('분류 확신도 낮음 경고 상자', () => {
+  const css = () => readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf-8')
+  const hex = (name) => {
+    const value = css().match(new RegExp(`--${name}:\\s*#([0-9a-fA-F]{6})`))[1]
+    return [0, 2, 4].map((i) => parseInt(value.slice(i, i + 2), 16))
+  }
+
+  it('안내 상자가 회색이 아니라 붉은 계열 경고 상자로 보인다', async () => {
+    const note = '분류 확신도가 기준값(70%)보다 낮습니다. 문의 종류가 맞는지 먼저 확인해 주세요.'
+    mockServer(baseRoutes(makeDetail({ confidence_percent: 41.2, auto_note: note })))
+    renderApp()
+    const box = await screen.findByText(note)
+    expect(box).toHaveClass('callout', 'callout-alert')
+    expect(box).toHaveAttribute('role', 'note')
+    expect(box).not.toHaveClass('callout-info')
+  })
+
+  it('경고 상자의 배경·테두리·글자 색은 모두 빨강이 가장 강하다 (회색이 아니다)', () => {
+    for (const name of ['alert-bg', 'alert-border', 'alert-text']) {
+      const [r, g, b] = hex(name)
+      expect(r - Math.max(g, b), `${name}의 빨강이 다른 색보다 충분히 강해야 한다`).toBeGreaterThanOrEqual(name === 'alert-bg' ? 10 : 40)
+    }
+    // 배경은 "살짝" 붉은색: 아주 진하지 않다
+    expect(Math.min(...hex('alert-bg'))).toBeGreaterThanOrEqual(200)
+    expect(css()).toMatch(/\.callout-alert \{[^}]*background: var\(--alert-bg\)[^}]*border-color: var\(--alert-border\)[^}]*color: var\(--alert-text\)/)
+  })
+})
+
+describe('승인 대기 / 빠른 승인을 오가도 요소 높이가 변하지 않는다', () => {
+  const css = readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf-8')
+  const rule = (selector) => css.match(new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{[^}]*\\}`))[0]
+
+  it('목록 위 제목 줄은 높이가 고정되어 있어, 빠른 승인 보기에서만 생기는 버튼이 줄을 키우지 않는다', () => {
+    const head = rule('.side-head')
+    expect(head).toMatch(/height: 53px/)
+    expect(head).toMatch(/flex: none/)
+    expect(head).toMatch(/align-items: center/)
+  })
+
+  it('목록은 스크롤바가 생기거나 없어져도 글이 옆으로 밀리지 않게 자리를 비워 둔다', () => {
+    expect(rule('.side-list')).toMatch(/scrollbar-gutter: stable/)
+  })
+})

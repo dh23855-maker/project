@@ -98,7 +98,7 @@ export default function InquiryDetail({ detail, busyText, handlers, scrollRoot =
         <h3>분류 결과</h3>
         <p className="classification">{classificationText(detail)}</p>
         {detail.auto_note && (
-          <div className="callout callout-info" role="note">
+          <div className="callout callout-alert" role="note">
             {detail.auto_note}
           </div>
         )}

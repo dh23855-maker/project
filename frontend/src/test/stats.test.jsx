@@ -94,6 +94,7 @@ function makeStats(days = 14, overrides = {}) {
     days,
     unit: hourly ? 'hour' : 'day',
     elapsed: hourly ? 16 : days,
+    today: '2026-11-03',
     start: hourly ? '2026-11-03' : keys[0][0],
     end: '2026-11-03',
     total,
@@ -137,11 +138,12 @@ describe('문의 현황 화면', () => {
     expect(await screen.findByRole('heading', { name: '문의 현황' })).toBeInTheDocument()
   })
 
-  it('기간 탭은 오늘 / 최근 7일 / 14일 / 30일이고 처음에는 14일이다', async () => {
+  it('기간 탭은 오늘 / 최근 7일 / 14일 / 30일 / 직접 지정이고 처음에는 14일이다', async () => {
     const server = mockServer(routes())
     renderApp('/stats')
     expect(await screen.findByRole('heading', { name: '날짜별 문의 건수' })).toBeInTheDocument()
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['오늘', '최근 7일', '최근 14일', '최근 30일'])
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['오늘', '최근 7일', '최근 14일', '최근 30일', '직접 지정'])
+    expect(screen.getByRole('tab', { name: '직접 지정' })).toHaveAttribute('aria-selected', 'false')
     expect(screen.getByRole('tab', { name: '최근 14일' })).toHaveAttribute('aria-selected', 'true')
     expect(server.called('GET', '/api/stats/inquiries?days=14')).toHaveLength(1)
   })
@@ -479,5 +481,161 @@ describe('그래프 계산', () => {
     expect(formatMinutes(135)).toBe('2시간 15분')
     expect(formatMinutes(60 * 24)).toBe('1일')
     expect(formatMinutes(60 * 24 * 2 + 60 * 3)).toBe('2일 3시간')
+  })
+})
+
+describe('문의 현황: 직접 지정 (캘린더)', () => {
+  const CUSTOM = (start, end) => `GET /api/stats/inquiries?start=${start}&end=${end}`
+  // 직접 지정 응답: 여러 날은 날짜별, 하루는 시간대별 (서버가 돌려주는 모양)
+  const multi = (start, end) => makeStats(7, { start, end, days: 7 })
+  const oneDay = (day, extra = {}) => makeStats(1, { start: day, end: day, elapsed: 24, ...extra })
+
+  const open = async (extra = {}) => {
+    const server = mockServer(routes(extra))
+    renderApp('/stats')
+    await screen.findByRole('heading', { name: '날짜별 문의 건수' })
+    await userEvent.click(screen.getByRole('tab', { name: '직접 지정' }))
+    return server
+  }
+  const day = (name) => screen.getByRole('button', { name })
+  const calendar = () => within(screen.getByRole('dialog', { name: '기간 직접 지정' }))
+  const back = async (times) => {
+    for (let i = 0; i < times; i += 1) await userEvent.click(calendar().getByRole('button', { name: '이전 달' }))
+  }
+
+  it('"직접 지정"을 누르면 서버가 알려 준 오늘이 있는 달의 캘린더가 열리고, 오늘 이후 날짜는 누를 수 없다', async () => {
+    await open()
+    expect(calendar().getByText('2026년 11월')).toBeInTheDocument()
+    expect(calendar().getByText('시작일을 고르세요.')).toBeInTheDocument()
+    expect(day('2026년 11월 3일')).toBeEnabled()
+    expect(day('2026년 11월 3일')).toHaveClass('today')
+    expect(day('2026년 11월 4일')).toBeDisabled()
+    expect(day('2026년 11월 30일')).toBeDisabled()
+    expect(calendar().getByRole('button', { name: '다음 달' })).toBeDisabled() // 이번 달이 마지막
+    // 고르기 전에는 지금 보는 기간(14일)이 그대로이고 "직접 지정" 탭은 선택된 것이 아니다
+    expect(screen.getByRole('tab', { name: '최근 14일' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: '직접 지정' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('tab', { name: '직접 지정' })).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('시작일과 종료일을 차례로 누르면 그 기간을 불러오고, 캘린더가 닫히며 탭에 기간이 보인다', async () => {
+    const server = await open({ [CUSTOM('2026-10-30', '2026-11-02')]: multi('2026-10-30', '2026-11-02') })
+    await back(1)
+    expect(calendar().getByText('2026년 10월')).toBeInTheDocument()
+    await userEvent.click(day('2026년 10월 30일'))
+    expect(calendar().getByText(/종료일을 고르세요/)).toBeInTheDocument()
+    await userEvent.click(calendar().getByRole('button', { name: '다음 달' }))
+    await userEvent.click(day('2026년 11월 2일'))
+
+    expect(screen.queryByRole('dialog', { name: '기간 직접 지정' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('tab', { name: '10.30 ~ 11.02' })).toHaveAttribute('aria-selected', 'true')
+    expect(server.called('GET', '/api/stats/inquiries?start=2026-10-30&end=2026-11-02')).toHaveLength(1)
+    // 다른 기간 탭은 선택이 풀린다
+    expect(screen.getByRole('tab', { name: '최근 14일' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('heading', { name: '날짜별 문의 건수' })).toBeInTheDocument()
+  })
+
+  it('종료일을 시작일보다 앞 날짜로 눌러도 앞뒤를 바로잡아 보낸다', async () => {
+    const server = await open({ [CUSTOM('2026-11-01', '2026-11-03')]: multi('2026-11-01', '2026-11-03') })
+    await userEvent.click(day('2026년 11월 3일'))
+    await userEvent.click(day('2026년 11월 1일'))
+    expect(await screen.findByRole('tab', { name: '11.01 ~ 11.03' })).toBeInTheDocument()
+    expect(server.called('GET', '/api/stats/inquiries?start=2026-11-01&end=2026-11-03')).toHaveLength(1)
+  })
+
+  it('같은 날을 두 번 누르면 그날 하루를 시간대별로 보여 주고, 오늘이 아니면 날짜를 붙여 부른다', async () => {
+    const server = await open({ [CUSTOM('2026-11-02', '2026-11-02')]: oneDay('2026-11-02') })
+    await userEvent.click(day('2026년 11월 2일'))
+    await userEvent.click(day('2026년 11월 2일'))
+
+    expect(await screen.findByRole('heading', { name: '시간대별 문의 건수' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '11.02' })).toHaveAttribute('aria-selected', 'true')
+    expect(server.called('GET', '/api/stats/inquiries?start=2026-11-02&end=2026-11-02')).toHaveLength(1)
+    expect(screen.getByRole('img', { name: '2026.11.02 14시 3건: 페널티 1건, 정산 2건' })).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /^오늘 14시/ })).not.toBeInTheDocument()
+    expect(screen.getByText('하루 24시간 기준')).toBeInTheDocument() // 0시부터 지금까지가 아니다
+    expect(screen.queryByText('0시부터 지금까지')).not.toBeInTheDocument()
+    expect(screen.getByText('2026.11.02')).toBeInTheDocument()
+  })
+
+  it('오늘 하루를 직접 골라도 "오늘"처럼 보인다', async () => {
+    await open({ [CUSTOM('2026-11-03', '2026-11-03')]: oneDay('2026-11-03', { elapsed: 16 }) })
+    await userEvent.click(day('2026년 11월 3일'))
+    await userEvent.click(day('2026년 11월 3일'))
+    expect(await screen.findByRole('img', { name: '오늘 14시 3건: 페널티 1건, 정산 2건' })).toBeInTheDocument()
+    expect(screen.getByText('0시부터 지금까지')).toBeInTheDocument()
+    expect(screen.getByText('2026.11.03 (오늘)')).toBeInTheDocument()
+  })
+
+  it('시작일을 누른 뒤에는 90일을 넘는 날짜를 누를 수 없다', async () => {
+    await open()
+    await userEvent.click(day('2026년 11월 1일'))
+    await back(3)
+    expect(calendar().getByText('2026년 8월')).toBeInTheDocument()
+    expect(day('2026년 8월 4일')).toBeEnabled() // 11월 1일까지 정확히 90일
+    expect(day('2026년 8월 3일')).toBeDisabled() // 91일
+  })
+
+  it('고르는 중에는 마우스를 올린 날까지, 고른 뒤에는 고른 기간이 칠해진다', async () => {
+    await open({ [CUSTOM('2026-11-01', '2026-11-03')]: multi('2026-11-01', '2026-11-03') })
+    await userEvent.click(day('2026년 11월 1일'))
+    await userEvent.hover(day('2026년 11월 3일'))
+    expect(day('2026년 11월 2일')).toHaveClass('in-range')
+    expect(day('2026년 11월 1일')).toHaveClass('edge')
+    expect(day('2026년 11월 3일')).toHaveClass('edge')
+    await userEvent.click(day('2026년 11월 3일'))
+    // 다시 열면 지난번에 고른 기간이 칠해져 있다
+    await userEvent.click(await screen.findByRole('tab', { name: '11.01 ~ 11.03' }))
+    expect(day('2026년 11월 1일')).toHaveClass('edge')
+    expect(day('2026년 11월 2일')).toHaveClass('in-range')
+    expect(day('2026년 11월 3일')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('Esc나 바깥을 누르면 아무것도 고르지 않고 닫히고, 보던 기간은 그대로다', async () => {
+    const server = await open()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: '기간 직접 지정' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('tab', { name: '직접 지정' }))
+    expect(screen.getByRole('dialog', { name: '기간 직접 지정' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('heading', { name: '문의 현황' })) // 바깥
+    expect(screen.queryByRole('dialog', { name: '기간 직접 지정' })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '최근 14일' })).toHaveAttribute('aria-selected', 'true')
+    expect(server.calls.filter((c) => c.url.includes('start='))).toHaveLength(0)
+  })
+
+  it('시작일만 누르고 닫았다가 다시 열면 처음부터 고른다', async () => {
+    await open()
+    await userEvent.click(day('2026년 11월 1일'))
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(screen.getByRole('tab', { name: '직접 지정' }))
+    expect(calendar().getByText('시작일을 고르세요.')).toBeInTheDocument()
+  })
+
+  it('다른 기간 탭을 누르면 직접 지정은 풀리고 탭 이름이 "직접 지정"으로 돌아온다', async () => {
+    const server = await open({ [CUSTOM('2026-11-01', '2026-11-03')]: multi('2026-11-01', '2026-11-03') })
+    await userEvent.click(day('2026년 11월 1일'))
+    await userEvent.click(day('2026년 11월 3일'))
+    await screen.findByRole('tab', { name: '11.01 ~ 11.03' })
+    await userEvent.click(screen.getByRole('tab', { name: '최근 7일' }))
+    expect(await screen.findByRole('tab', { name: '직접 지정' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('tab', { name: '최근 7일' })).toHaveAttribute('aria-selected', 'true')
+    expect(server.called('GET', '/api/stats/inquiries?days=7')).toHaveLength(1)
+  })
+
+  it('서버가 기간을 거절하면 이유를 보여 준다', async () => {
+    await open({ [CUSTOM('2026-11-01', '2026-11-03')]: jsonResponse(400, { detail: '직접 지정은 최대 90일까지 고를 수 있습니다.' }) })
+    await userEvent.click(day('2026년 11월 1일'))
+    await userEvent.click(day('2026년 11월 3일'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('직접 지정은 최대 90일까지 고를 수 있습니다.')
+  })
+
+  it('올해가 아닌 날짜가 들어간 기간은 탭에 연도(2자리)가 붙는다', async () => {
+    await open({ [CUSTOM('2025-12-30', '2026-01-02')]: multi('2025-12-30', '2026-01-02') })
+    await back(11)
+    expect(calendar().getByText('2025년 12월')).toBeInTheDocument()
+    await userEvent.click(day('2025년 12월 30일'))
+    await userEvent.click(calendar().getByRole('button', { name: '다음 달' }))
+    await userEvent.click(day('2026년 1월 2일'))
+    expect(await screen.findByRole('tab', { name: '25.12.30 ~ 26.01.02' })).toBeInTheDocument()
   })
 })

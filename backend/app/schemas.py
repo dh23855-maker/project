@@ -252,6 +252,7 @@ class InquiryStatsOut(BaseModel):
     days: int
     unit: str  # day 또는 hour
     elapsed: int  # 지금까지 지난 칸 수 (하루 평균·시간당 평균을 구할 때 쓴다)
+    today: str  # 서버가 아는 한국 시간의 오늘 (YYYY-MM-DD)
     start: str
     end: str
     total: int

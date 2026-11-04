@@ -99,5 +99,10 @@ export const api = {
   listEvaluations: () => request('GET', '/api/evaluations'),
   getEvaluation: (id) => request('GET', `/api/evaluations/${id}`),
   runEvaluation: () => request('POST', '/api/evaluations'),
-  getInquiryStats: (days) => request('GET', '/api/stats/inquiries?days=' + days),
+  // range: 7 같은 숫자(최근 며칠, 1이면 오늘) 또는 { start, end }(직접 지정, YYYY-MM-DD)
+  getInquiryStats: (range) =>
+    request(
+      'GET',
+      typeof range === 'object' ? `/api/stats/inquiries?start=${range.start}&end=${range.end}` : `/api/stats/inquiries?days=${range}`,
+    ),
 }

@@ -2,6 +2,8 @@
 
 임시 DB 영역의 문의 시각과 종류 등을 정해진 값으로 바꿔 놓고 센다.
 """
+from datetime import date, timedelta
+
 from app.stats import BAD_DAYS_MESSAGE, DAY_CHOICES, UNCLASSIFIED
 from ml.labels import LABELS
 from tests.base import ApiTestBase
@@ -259,3 +261,93 @@ class StatsTest(ApiTestBase):
             self.sql("UPDATE inquiries SET status = 'done', resolved_at = created_at + interval '5 minutes' WHERE id = %s", (inquiry_id,))
         self.assertEqual(self.get(7).json()["handling"]["done"], 1)
         self.assertEqual(self.get(14).json()["handling"]["done"], 2)
+
+    # --- 직접 지정한 기간 (캘린더) -----------------------------------------------------
+
+    def today(self):
+        return date.fromisoformat(self.get(7).json()["today"])
+
+    def get_range(self, start, end, extra=""):
+        return self.login("kim").get(f"/api/stats/inquiries?start={start}&end={end}{extra}")
+
+    def test_custom_range_counts_only_the_chosen_days(self):
+        self.place([(0, "09:00", A), (1, "09:00", A), (2, "10:00", B), (3, "11:00", B), (4, "12:00", A), (6, "12:00", A)])
+        today = self.today()
+        body = self.get_range(today - timedelta(days=3), today - timedelta(days=1)).json()
+        self.assertEqual((body["unit"], body["days"], body["elapsed"], len(body["buckets"])), ("day", 3, 3, 3))
+        self.assertEqual((body["start"], body["end"]), ((today - timedelta(days=3)).isoformat(), (today - timedelta(days=1)).isoformat()))
+        self.assertEqual(body["total"], 3)  # 오늘(0일 전)과 4일 전, 6일 전은 빠진다
+        self.assertEqual([b["total"] for b in body["buckets"]], [1, 1, 1])  # 오래된 날부터
+        self.assertEqual([b["key"] for b in body["buckets"]], [(today - timedelta(days=n)).isoformat() for n in (3, 2, 1)])
+        self.assertEqual(body["today"], today.isoformat())
+
+    def test_custom_range_includes_both_ends_and_days_without_inquiries(self):
+        self.place([(5, "00:10", A), (2, "23:50", B)])
+        today = self.today()
+        body = self.get_range(today - timedelta(days=5), today - timedelta(days=2)).json()
+        self.assertEqual([b["total"] for b in body["buckets"]], [1, 0, 0, 1])  # 시작일 00:10과 종료일 23:50 모두 들어간다
+        self.assertEqual(body["total"], 2)
+
+    def test_custom_range_ignores_days(self):
+        self.place([(0, "09:00", A), (20, "09:00", A)])
+        today = self.today()
+        body = self.get_range(today - timedelta(days=25), today, "&days=1").json()
+        self.assertEqual((body["unit"], body["days"], body["total"]), ("day", 26, 2))
+
+    def test_a_single_past_day_is_shown_per_hour(self):
+        self.place([(2, "09:10", A), (2, "09:50", B), (2, "23:59", A), (1, "09:30", A), (3, "09:30", A)])
+        day = (self.today() - timedelta(days=2)).isoformat()
+        body = self.get_range(day, day).json()
+        self.assertEqual((body["unit"], body["days"], body["start"], body["end"]), ("hour", 1, day, day))
+        self.assertEqual([b["key"] for b in body["buckets"]], [f"{h:02d}" for h in range(24)])
+        self.assertEqual(body["elapsed"], 24)  # 지난 하루는 24시간 모두 지났다
+        self.assertEqual(body["total"], 3)  # 어제와 그저께 문의는 빠진다
+        by_hour = {int(b["key"]): b for b in body["buckets"]}
+        self.assertEqual((by_hour[9]["total"], by_hour[23]["total"], by_hour[10]["total"]), (2, 1, 0))
+
+    def test_a_single_day_that_is_today_counts_hours_up_to_now(self):
+        self.place([(0, "00:20", A)])
+        today = self.today().isoformat()
+        body = self.get_range(today, today).json()
+        self.assertEqual(body["unit"], "hour")
+        self.assertEqual(body["elapsed"], self.get(1).json()["elapsed"])
+        self.assertTrue(1 <= body["elapsed"] <= 24)
+
+    def test_custom_range_has_the_same_numbers_as_the_preset_for_the_same_days(self):
+        self.place([(0, "09:00", A), (1, "09:00", B), (3, "09:00", A), (6, "09:00", B)])
+        today = self.today()
+        preset = self.get(7).json()
+        custom = self.get_range(today - timedelta(days=6), today).json()
+        self.assertEqual(preset, custom)
+
+    def test_a_range_of_exactly_90_days_is_allowed_and_91_is_not(self):
+        today = self.today()
+        self.place([])
+        ok = self.get_range(today - timedelta(days=89), today)
+        self.assertEqual((ok.status_code, len(ok.json()["buckets"])), (200, 90))
+        too_long = self.get_range(today - timedelta(days=90), today)
+        self.assertEqual(too_long.status_code, 400)
+        self.assertEqual(too_long.json()["detail"], "직접 지정은 최대 90일까지 고를 수 있습니다.")
+
+    def test_bad_custom_ranges_are_rejected_with_a_reason(self):
+        today = self.today()
+        yesterday, tomorrow = today - timedelta(days=1), today + timedelta(days=1)
+        cases = [
+            (f"start={yesterday}", "시작일과 종료일을 함께 지정하세요."),
+            (f"end={yesterday}", "시작일과 종료일을 함께 지정하세요."),
+            ("start=&end=", "시작일과 종료일을 함께 지정하세요."),
+            (f"start={today}&end={yesterday}", "시작일이 종료일보다 늦을 수 없습니다."),
+            (f"start={yesterday}&end={tomorrow}", "오늘 이후의 날짜는 고를 수 없습니다."),
+            (f"start={tomorrow}&end={tomorrow}", "오늘 이후의 날짜는 고를 수 없습니다."),
+            ("start=2026-13-01&end=2026-13-02", "날짜는 2026-11-03처럼 연-월-일 형식으로 보내세요."),
+            ("start=어제&end=오늘", "날짜는 2026-11-03처럼 연-월-일 형식으로 보내세요."),
+        ]
+        for query, message in cases:
+            with self.subTest(query=query):
+                response = self.login("kim").get(f"/api/stats/inquiries?{query}")
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["detail"], message)
+
+    def test_custom_range_needs_login(self):
+        today = self.today()
+        self.assertEqual(self.new_client().get(f"/api/stats/inquiries?start={today}&end={today}").status_code, 401)

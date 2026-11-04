@@ -14,6 +14,9 @@
   --warn-border: #f0c978;
   --info-bg: #f2f2f2;
   --info-border: #d8d8d8;
+  --alert-bg: #fdecea; /* 분류 확신도 낮음 등 먼저 확인해야 할 안내: 살짝 붉은색 */
+  --alert-border: #eeaaa3;
+  --alert-text: #8a2b21;
   --legacy-bg: #fdf0f0;
   --legacy-border: #e5a3a3;
   --pill-bg: #f7f7f7;
@@ -352,10 +355,13 @@ body.resizing {
   cursor: col-resize;
   user-select: none;
 }
+/* 높이를 고정한다: 빠른 승인 보기에서만 생기는 버튼이 헤더를 키워 아래 탭과 목록이 밀리지 않게 */
 .side-head {
   display: flex;
-  align-items: baseline;
+  flex: none;
+  align-items: center;
   gap: 8px;
+  height: 53px;
   padding: 14px 16px 6px;
 }
 .side-sort-select {
@@ -421,6 +427,7 @@ body.resizing {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+  scrollbar-gutter: stable; /* 보기에 따라 스크롤바가 생기고 없어져도 글이 옆으로 밀리지 않게 */
 }
 .inquiry-list {
   list-style: none;
@@ -623,9 +630,11 @@ body.resizing {
   margin-top: 0;
   margin-bottom: 10px;
 }
-.callout-info {
-  background: var(--info-bg);
-  border-color: var(--info-border);
+.callout-alert {
+  background: var(--alert-bg);
+  border-color: var(--alert-border);
+  color: var(--alert-text);
+  font-weight: 600;
 }
 .callout-sub {
   margin: 2px 0 6px;
@@ -1313,6 +1322,98 @@ mark {
   padding: 7px 0;
   border-bottom: 1px solid var(--border);
   font-size: 14px;
+}
+
+/* 문의 현황의 "직접 지정" 캘린더 */
+.range-custom {
+  position: relative;
+  display: flex;
+}
+.range-custom > .status-tab {
+  flex: none;
+}
+.calendar-pop {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  width: 308px;
+  margin-top: 8px;
+  padding: 14px 14px 12px;
+  background: var(--surface);
+  border-radius: 18px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16), 0 0 0 1px var(--border);
+}
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.calendar-nav {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--pill-bg);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.calendar-nav:hover:not(:disabled) {
+  background: var(--pill-active);
+}
+.calendar-nav:disabled {
+  color: #c4c4c4;
+  cursor: default;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  row-gap: 2px;
+}
+.calendar-weekday {
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.calendar-day {
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.calendar-day:hover:not(:disabled) {
+  background: var(--pill-active);
+}
+.calendar-day:disabled {
+  color: #c4c4c4;
+  cursor: default;
+}
+.calendar-day.today {
+  box-shadow: inset 0 0 0 1.5px var(--primary);
+}
+.calendar-day.in-range {
+  background: var(--pill-active);
+  border-radius: 0;
+}
+.calendar-day.edge {
+  background: var(--primary);
+  border-radius: 999px;
+  color: #ffffff;
+  font-weight: 700;
+}
+.calendar-hint {
+  margin: 8px 2px 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 /* 빠른 승인 */

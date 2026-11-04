@@ -2,16 +2,19 @@
 
 - 날짜와 시각은 한국 시간(Asia/Seoul) 기준이다.
 - 기간이 "오늘"(1일)이면 시간대별(0시~23시), 그 밖에는 날짜별로 센다. 문의가 없는 칸도 0으로 채워서 돌려준다.
+- 기간은 오늘·7·14·30일 중에서 고르거나, 시작일과 종료일을 직접 지정한다(최대 90일, 오늘 이후는 안 됨).
+  직접 지정한 기간이 하루뿐이면 그날을 시간대별로 센다.
 - 선택한 기간 안에 **들어온 문의**(created_at이 기간 안)만 센다. 처리 현황도 이 문의들의 지금 상태다.
 """
 import statistics
-from datetime import timedelta
+from datetime import date, timedelta
 
 from app.inquiries import DEFAULT_THRESHOLD
 from ml.labels import LABEL_KO, LABEL_WHO_KO, LABELS
 
 DAY_CHOICES = (1, 7, 14, 30)  # 1 = 오늘 (시간대별)
 DEFAULT_DAYS = 14
+MAX_CUSTOM_DAYS = 90  # 직접 지정할 수 있는 가장 긴 기간
 TIMEZONE = "Asia/Seoul"
 UNCLASSIFIED = "none"  # 분류 결과가 없는 문의 (분류에 실패한 경우)
 UNCLASSIFIED_KO = "분류 없음"
@@ -42,15 +45,41 @@ def _threshold(conn):
     return int(row["value"]) if row else DEFAULT_THRESHOLD
 
 
-def inquiry_stats(conn, days=DEFAULT_DAYS):
-    if days not in DAY_CHOICES:
+def _custom_range(start_text, end_text, today):
+    """직접 지정한 시작일·종료일(YYYY-MM-DD)을 확인해 (시작일, 종료일)로 돌려준다. 잘못되면 StatsError."""
+    if not start_text or not end_text:
+        raise StatsError("시작일과 종료일을 함께 지정하세요.")
+    try:
+        start, end = date.fromisoformat(start_text), date.fromisoformat(end_text)
+    except ValueError:
+        raise StatsError("날짜는 2026-11-03처럼 연-월-일 형식으로 보내세요.") from None
+    if start > end:
+        raise StatsError("시작일이 종료일보다 늦을 수 없습니다.")
+    if end > today:
+        raise StatsError("오늘 이후의 날짜는 고를 수 없습니다.")
+    if (end - start).days + 1 > MAX_CUSTOM_DAYS:
+        raise StatsError(f"직접 지정은 최대 {MAX_CUSTOM_DAYS}일까지 고를 수 있습니다.")
+    return start, end
+
+
+def inquiry_stats(conn, days=DEFAULT_DAYS, start_text=None, end_text=None):
+    """days(오늘·7·14·30일) 또는 직접 지정한 시작일~종료일의 문의 현황.
+
+    start_text, end_text를 주면 days는 무시한다. 하루만 지정하면 그날을 시간대별로 보여 준다(오늘과 같은 모양).
+    """
+    custom = start_text is not None or end_text is not None
+    if not custom and days not in DAY_CHOICES:
         raise StatsError(BAD_DAYS_MESSAGE)
 
     clock = conn.execute(
         f"SELECT (now() AT TIME ZONE '{TIMEZONE}')::date AS today, EXTRACT(HOUR FROM (now() AT TIME ZONE '{TIMEZONE}'))::int AS hour"
     ).fetchone()
     today = clock["today"]
-    start = today - timedelta(days=days - 1)
+    if custom:
+        start, end = _custom_range(start_text, end_text, today)
+        days = (end - start).days + 1
+    else:
+        start, end = today - timedelta(days=days - 1), today
     threshold = _threshold(conn)
     rows = conn.execute(
         f"""
@@ -72,7 +101,7 @@ def inquiry_stats(conn, days=DEFAULT_DAYS):
         ) a ON true
         WHERE (i.created_at AT TIME ZONE '{TIMEZONE}')::date BETWEEN %s AND %s
         """,
-        (list(RESOLVING_ACTIONS), start, today),
+        (list(RESOLVING_ACTIONS), start, end),
     ).fetchall()
 
     for r in rows:
@@ -150,12 +179,15 @@ def inquiry_stats(conn, days=DEFAULT_DAYS):
         "average_minutes": _minutes_text(statistics.fmean(minutes)) if minutes else None,
     }
 
+    # 지금까지 지난 칸 수: 오늘 하루만 보면 0시부터 지금 시각까지의 시간 수, 지난 하루는 24시간, 여러 날이면 날수
+    elapsed = days if days > 1 else (clock["hour"] + 1 if end == today else 24)
     return {
         "days": days,
         "unit": unit,
-        "elapsed": clock["hour"] + 1 if days == 1 else days,  # 지금까지 지난 칸 수 (오늘이면 0시부터 지금 시각까지의 시간 수)
+        "elapsed": elapsed,
+        "today": today.isoformat(),
         "start": start.isoformat(),
-        "end": today.isoformat(),
+        "end": end.isoformat(),
         "total": len(rows),
         "threshold": threshold,
         "overall": summarize(rows),

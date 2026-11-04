@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api.js'
+import { CustomRangeTab, localToday } from '../components/RangeCalendar.jsx'
 import { PillMark, useSlidingPill } from '../components/SlidingPill.jsx'
 
 export const RANGES = [
@@ -29,8 +30,12 @@ export const shortDate = (iso) => `${iso.slice(5, 7)}.${iso.slice(8, 10)}`
 export const longDate = (iso) => `${iso.slice(0, 4)}.${iso.slice(5, 7)}.${iso.slice(8, 10)} (${WEEKDAY[parse(iso).getDay()]})`
 export const dots = (iso) => iso.replaceAll('-', '.')
 
-// 칸(날짜 또는 시간) 이름: 날짜는 "2026.11.02 (월)", 시간은 "오늘 9시"
-const bucketTitle = (data, bucket) => (data.unit === 'hour' ? `오늘 ${bucket.label}` : longDate(bucket.key))
+// 시간대별로 보는 날이 오늘인가 (서버가 오늘 날짜를 알려 주지 않으면 오늘로 본다)
+const isTodayView = (data) => !data.today || data.end === data.today
+
+// 칸(날짜 또는 시간) 이름: 날짜는 "2026.11.02 (월)", 시간은 "오늘 9시" (지난 하루를 고른 경우 "2026.11.02 9시")
+const bucketTitle = (data, bucket) =>
+  data.unit === 'hour' ? `${isTodayView(data) ? '오늘' : dots(data.end)} ${bucket.label}` : longDate(bucket.key)
 const bucketAxis = (data, bucket) => (data.unit === 'hour' ? bucket.label : shortDate(bucket.key))
 
 export const percentText = (value) => (value == null ? '-' : `${value.toFixed(1)}%`)
@@ -76,7 +81,7 @@ const PAD = { left: 44, right: 12, top: 16, bottom: 36 }
 function labelEvery(data) {
   const n = data.buckets.length
   if (data.unit === 'hour') return 3
-  return n <= 7 ? 1 : n <= 14 ? 2 : 5
+  return n <= 7 ? 1 : n <= 14 ? 2 : n <= 35 ? 5 : 10
 }
 
 // 날짜(또는 시간)별 쌓은 막대. 칸에 마우스를 올리면 말풍선으로 종류별 건수가 나온다.
@@ -449,9 +454,12 @@ function Handling({ handling }) {
 
 // 문의 현황: 언제 어떤 종류의 문의가 얼마나 들어왔는지, 초안과 처리가 어땠는지 본다.
 export default function StatsPage() {
-  const [days, setDays] = useState(DEFAULT_DAYS)
+  // 기간: { days }(오늘·7·14·30일) 또는 { start, end }(직접 지정)
+  const [range, setRange] = useState({ days: DEFAULT_DAYS })
+  const custom = range.start ? range : null
+  const rangeKey = custom ? `${custom.start}~${custom.end}` : range.days
   const rangeRef = useRef(null)
-  const pill = useSlidingPill(rangeRef, '.status-tab.active', days)
+  const pill = useSlidingPill(rangeRef, '.status-tab.active', rangeKey)
   const [data, setData] = useState(null)
   const [state, setState] = useState('loading')
   const [error, setError] = useState('')
@@ -462,7 +470,7 @@ export default function StatsPage() {
     setState('loading')
     setError('')
     api
-      .getInquiryStats(days)
+      .getInquiryStats(custom ?? range.days)
       .then((result) => {
         if (cancelled) return
         setData(result)
@@ -476,7 +484,7 @@ export default function StatsPage() {
     return () => {
       cancelled = true
     }
-  }, [days])
+  }, [rangeKey]) // range 객체가 아니라 값(rangeKey)이 바뀔 때만 다시 불러온다
 
   const summary = useMemo(() => {
     if (!data || data.total === 0) return null
@@ -487,7 +495,8 @@ export default function StatsPage() {
   }, [data])
 
   const hourly = data?.unit === 'hour'
-  const period = data ? (hourly ? `${dots(data.end)} (오늘)` : `${dots(data.start)} ~ ${dots(data.end)}`) : ''
+  const todayView = data ? isTodayView(data) : true
+  const period = data ? (hourly ? `${dots(data.end)}${todayView ? ' (오늘)' : ''}` : `${dots(data.start)} ~ ${dots(data.end)}`) : ''
 
   return (
     <main className="page">
@@ -502,13 +511,18 @@ export default function StatsPage() {
               key={r.days}
               type="button"
               role="tab"
-              aria-selected={days === r.days}
-              className={`status-tab ${days === r.days ? 'active' : ''}`}
-              onClick={() => setDays(r.days)}
+              aria-selected={!custom && range.days === r.days}
+              className={`status-tab ${!custom && range.days === r.days ? 'active' : ''}`}
+              onClick={() => setRange({ days: r.days })}
             >
               {r.label}
             </button>
           ))}
+          <CustomRangeTab
+            today={data?.today ?? localToday()}
+            range={custom}
+            onPick={(start, end) => setRange({ start, end })}
+          />
         </div>
         <button type="button" className="btn btn-small" onClick={() => setAsTable((v) => !v)} aria-pressed={asTable}>
           {asTable ? '그래프로 보기' : '표로 보기'}
@@ -551,7 +565,7 @@ export default function StatsPage() {
                 <div className="kpi">
                   <span className="kpi-label">{hourly ? '시간당 평균' : '하루 평균'}</span>
                   <span className="kpi-value">{summary.average.toFixed(1)}건</span>
-                  <span className="muted">{hourly ? '0시부터 지금까지' : '문의 없는 날 포함'}</span>
+                  <span className="muted">{hourly ? (todayView ? '0시부터 지금까지' : '하루 24시간 기준') : '문의 없는 날 포함'}</span>
                 </div>
               </div>
 
