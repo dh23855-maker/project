@@ -95,10 +95,6 @@ export const api = {
   // 작업 기록
   listLogs: ({ agent, action } = {}) => request('GET', `/api/action-logs${query({ agent, action })}`),
 
-  // 성능 평가
-  listEvaluations: () => request('GET', '/api/evaluations'),
-  getEvaluation: (id) => request('GET', `/api/evaluations/${id}`),
-  runEvaluation: () => request('POST', '/api/evaluations'),
   // range: 7 같은 숫자(최근 며칠, 1이면 오늘) 또는 { start, end }(직접 지정, YYYY-MM-DD)
   getInquiryStats: (range) =>
     request(

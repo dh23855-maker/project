@@ -161,54 +161,6 @@ class ActionLogOut(BaseModel):
     final_reply: str | None
 
 
-class EvaluationSummary(BaseModel):
-    """평가 실행 한 번의 요약 (이전 실행 목록용)."""
-
-    id: int
-    created_at: datetime
-    run_by_name: str | None
-    total: int
-    correct: int
-    accuracy: float | None
-    description: str | None
-
-
-class LabelStat(BaseModel):
-    total: int
-    correct: int
-    accuracy: float | None
-
-
-class Confusion(BaseModel):
-    true: str
-    predicted: str
-    count: int
-
-
-class WrongItem(BaseModel):
-    text: str
-    true: str
-    predicted: str
-    difficulty: str | None = None
-    confidence: float | None = None
-
-
-class LabelName(BaseModel):
-    key: str
-    ko: str
-
-
-class EvaluationDetail(EvaluationSummary):
-    per_label: dict[str, LabelStat]
-    per_difficulty: dict[str, LabelStat] | None
-    confusions: list[Confusion]
-    wrong: list[WrongItem]
-    train_size: int | None
-    eval_file: str | None
-    labels: list[LabelName]
-    difficulties: list[str]
-
-
 class StatsBreakdown(BaseModel):
     """묶음(전체, 종류, 칸) 하나의 초안·확신도 현황."""
 

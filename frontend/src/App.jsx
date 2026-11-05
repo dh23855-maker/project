@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth.jsx'
 import Layout from './components/Layout.jsx'
-import EvaluationPage from './pages/EvaluationPage.jsx'
 import ConsultPage from './pages/ConsultPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import LogsPage from './pages/LogsPage.jsx'
@@ -25,7 +24,6 @@ export default function App() {
           <Route path="/" element={<ConsultPage />} />
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/stats" element={<StatsPage />} />
-          <Route path="/evaluation" element={<EvaluationPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

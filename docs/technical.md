@@ -292,7 +292,8 @@
 | `inquiries` | **문의 한 건당 한 줄.** 질문(`body`), 분류 종류·확신도, 상태, **최종 답장(`final_reply`)**, 처리한 상담사와 시각, 재작성 횟수 |
 | `drafts` | AI가 쓴 초안 (문의당 최대 2개), 초안이 쓴 규정 문서 번호(`cited_articles`), 모델이 적은 "규정에 없는 내용" 메모 |
 | `action_logs` | 상담사가 한 일의 **이력** (승인·수정·재작성·직접 작성). 그때의 초안과 최종 답장 글을 함께 복사해 둠 |
-| `risky_phrases`, `settings`, `eval_runs` | 위험 표현 목록, 확신도 기준값, 성능 평가 결과 |
+| `risky_phrases`, `settings` | 위험 표현 목록, 확신도 기준값 |
+| `eval_runs` | (지금은 쓰이지 않음) 예전 성능 평가 화면이 결과를 저장하던 표. 화면을 삭제하면서 표는 그대로 남겨 둠 |
 | **`qa_pairs` (보기)** | 질문 - 최종 답변 쌍 (아래 6-3) |
 | 파일 (DB 아님) | 분류 모델 `ml/models/classifier.joblib`, 규정 문서 `policies/policy_clauses.md`, 조항 임베딩 `policies/embedding_cache.json` (모델·임베딩 캐시는 Git에 올리지 않음) |
 
@@ -322,10 +323,10 @@
 
 | 무엇을 | 어떻게 | 실행 |
 |---|---|---|
-| 분류 성적 | 정답이 달린 평가용 140개로 전체·종류별·난이도별 정확도와 헷갈린 쌍. 화면의 "성능 평가"에서도 같은 평가를 실행하고 결과를 DB에 저장 | `python -m ml.evaluate` |
+| 분류 성적 | 정답이 달린 평가용 140개로 전체·종류별·난이도별 정확도와 헷갈린 쌍. 결과는 `ml/results/eval.json`에 저장(예전에는 화면의 "성능 평가"에서도 실행했지만 화면은 삭제) | `python -m ml.evaluate` |
 | 규정 찾기 방식 비교 | 정답 표 134개로 TF-IDF/임베딩/섞기의 1등 안·3등 안·MRR | `python -m ml.retrieval_compare [모델]` (약간의 OpenAI 비용) |
-| 서버 시험 (233개) | OpenAI를 `FakeDrafter`·`FakeEmbedder`로 대신해 비용 없이, DB는 임시 영역(`test_…`)에서 | `python -m unittest discover -s tests -t .` |
-| 화면 시험 (208개) | 서버·OpenAI를 가짜로 대신 | `npm test` |
+| 서버 시험 (232개) | OpenAI를 `FakeDrafter`·`FakeEmbedder`로 대신해 비용 없이, DB는 임시 영역(`test_…`)에서 | `python -m unittest discover -s tests -t .` |
+| 화면 시험 (200개) | 서버·OpenAI를 가짜로 대신 | `npm test` |
 | 시험이 쓸모 있는가 | **코드를 일부러 망가뜨려** 시험이 실패로 잡아내는지 확인 (예: 확신도 경계, 조항 번호 검증, 임베딩 실패 시 대체) | 기능마다 수행 |
 
 - 시험이 통과하는 것만으로는 "시험이 아무것도 검사하지 않는" 경우를 알 수 없어서 일부러 망가뜨려 보는 점검을 했습니다. 못 잡는 경우는 동작이 같은 변형(예: 이미 다른 조건이 보장하는 조건을 지움)뿐이었고, 그것도 기록했습니다.

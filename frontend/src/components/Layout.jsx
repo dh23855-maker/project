@@ -22,7 +22,6 @@ export default function Layout() {
           </NavLink>
           <NavLink to="/logs">작업 기록</NavLink>
           <NavLink to="/stats">문의 현황</NavLink>
-          <NavLink to="/evaluation">성능 평가</NavLink>
           <NavLink to="/settings">설정</NavLink>
         </nav>
         <span className="spacer" />

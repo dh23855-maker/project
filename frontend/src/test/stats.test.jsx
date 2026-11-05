@@ -129,11 +129,11 @@ const hits = () => screen.getAllByRole('img').filter((el) => el.classList.contai
 const section = (name) => within(screen.getByRole('heading', { name }).closest('section'))
 
 describe('문의 현황 화면', () => {
-  it('상단 메뉴에 "문의 현황"이 작업 기록과 성능 평가 사이에 있고 누르면 열린다', async () => {
+  it('상단 메뉴에 "문의 현황"이 작업 기록과 설정 사이에 있고 누르면 열린다', async () => {
     mockServer({ ...routes(), 'GET /api/inquiries': [] })
     renderApp('/logs')
     const menu = within(await screen.findByRole('navigation', { name: '메뉴' }))
-    expect(menu.getAllByRole('link').map((a) => a.textContent)).toEqual(['상담', '작업 기록', '문의 현황', '성능 평가', '설정'])
+    expect(menu.getAllByRole('link').map((a) => a.textContent)).toEqual(['상담', '작업 기록', '문의 현황', '설정'])
     await userEvent.click(menu.getByRole('link', { name: '문의 현황' }))
     expect(await screen.findByRole('heading', { name: '문의 현황' })).toBeInTheDocument()
   })

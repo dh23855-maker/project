@@ -12,11 +12,8 @@ afterEach(() => {
 
 describe('상단 이름 버튼', () => {
   it('"고동동 CS"를 누르면 어느 화면에서든 상담 화면으로 이동한다', async () => {
-    mockServer({
-      ...baseRoutes(makeDetail()),
-      'GET /api/evaluations': [],
-    })
-    renderApp('/evaluation')
+    mockServer({ ...baseRoutes(makeDetail()), 'GET /api/logs': [], 'GET /api/action-logs': [] })
+    renderApp('/logs')
     const brand = await screen.findByRole('link', { name: '고동동 CS 상담 화면으로 이동' })
     expect(brand).toHaveAttribute('href', '/')
     expect(brand).toHaveTextContent('고동동 CS')
@@ -39,7 +36,7 @@ describe('메뉴의 선택 표시', () => {
 
   it('선택 표시(알약)가 있고 메뉴를 바꾸면 그 메뉴 위치로 옮겨 간다', async () => {
     stubOffsets()
-    mockServer({ ...baseRoutes(makeDetail()), 'GET /api/logs': [], 'GET /api/action-logs': [], 'GET /api/evaluations': [] })
+    mockServer({ ...baseRoutes(makeDetail()), 'GET /api/logs': [], 'GET /api/action-logs': [] })
     renderApp('/')
     const menu = within(await screen.findByRole('navigation', { name: '메뉴' }))
     const pill = () => document.querySelector('.nav-pill')
@@ -47,11 +44,11 @@ describe('메뉴의 선택 표시', () => {
     expect(pill().style.transform).toBe('translateX(0px)') // 상담(첫 메뉴)
     expect(pill().style.width).toBe('80px')
 
-    await userEvent.click(menu.getByRole('link', { name: '성능 평가' }))
-    expect(pill().style.transform).toBe('translateX(300px)') // 네 번째 메뉴
+    await userEvent.click(menu.getByRole('link', { name: '문의 현황' }))
+    expect(pill().style.transform).toBe('translateX(200px)') // 세 번째 메뉴
     // 메뉴를 바꾼 뒤에는 움직임(transition)이 켜져 있다
     expect(pill()).toHaveClass('animate')
-    expect(menu.getByRole('link', { name: '성능 평가' })).toHaveClass('active')
+    expect(menu.getByRole('link', { name: '문의 현황' })).toHaveClass('active')
     expect(menu.getByRole('link', { name: '상담' })).not.toHaveClass('active')
   })
 

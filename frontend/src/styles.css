@@ -38,7 +38,7 @@
   box-sizing: border-box;
 }
 
-/* 성능 평가처럼 긴 화면에서만 세로 스크롤바가 생겨 화면이 옆으로 밀리지 않도록 자리를 항상 비워 둔다 */
+/* 긴 화면에서만 세로 스크롤바가 생겨 화면이 옆으로 밀리지 않도록 자리를 항상 비워 둔다 */
 html {
   scrollbar-gutter: stable;
 }
@@ -844,53 +844,6 @@ mark {
   .consult-side {
     border-radius: 0;
   }
-}
-
-/* 성능 평가 */
-.eval-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 12px 0 16px;
-}
-.eval-result {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-.big-number {
-  font-size: 27px;
-  font-weight: 700;
-  margin: 4px 0;
-}
-.bar {
-  display: block;
-  width: 160px;
-  height: 10px;
-  background: var(--border);
-  border-radius: 5px;
-  overflow: hidden;
-}
-.bar-fill {
-  display: block;
-  height: 100%;
-  background: var(--primary);
-}
-.wrong-list {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
-}
-.wrong-list li {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border);
-}
-.wrong-list p {
-  margin: 2px 0;
-}
-.row-selected {
-  background: #ececec;
 }
 
 /* 작업 기록: 행동마다 다른 색 */
