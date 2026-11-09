@@ -473,6 +473,52 @@ body.resizing {
   gap: 6px;
   background: var(--surface-alt);
 }
+/* 제목을 누르면 입력 칸이 부드럽게 접히고 펼쳐진다 (높이 0 ↔ 원래 높이) */
+.new-inquiry-panel {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.2s ease;
+}
+.new-inquiry-panel.collapsed {
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 0.2s ease, visibility 0s linear 0.2s;
+}
+.new-inquiry-panel-inner {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.new-inquiry-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.new-inquiry-chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+.new-inquiry-toggle[aria-expanded='false'] .new-inquiry-chevron {
+  transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-inquiry-panel,
+  .new-inquiry-panel.collapsed,
+  .new-inquiry-chevron {
+    transition: none;
+  }
+}
 .new-inquiry-foot {
   display: flex;
   align-items: center;

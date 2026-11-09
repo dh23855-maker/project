@@ -28,7 +28,7 @@ export function mockServer(routes) {
     calls.push({ method, url, body })
     const handler = routes[`${method} ${url}`]
     if (handler === undefined) throw new Error(`가짜 서버에 없는 요청: ${method} ${url}`)
-    const result = typeof handler === 'function' ? handler({ body, url }) : handler
+    const result = await (typeof handler === 'function' ? handler({ body, url }) : handler) // 답을 늦게 주는(Promise) 가짜 서버도 쓸 수 있다
     return result && typeof result.json === 'function' ? result : jsonResponse(200, result)
   })
   vi.stubGlobal('fetch', fetchMock)

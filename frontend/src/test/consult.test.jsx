@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -465,6 +467,65 @@ describe('상담 화면: 새 문의 입력', () => {
     await userEvent.click(screen.getByRole('button', { name: '등록' }))
     expect(await screen.findByText('문의 내용을 입력하세요.')).toBeInTheDocument()
     expect(server.called('POST', '/api/inquiries')).toHaveLength(0)
+  })
+
+  describe('접기·펼치기', () => {
+    const toggle = () => screen.getByRole('button', { name: '새 문의 입력' })
+    const panel = () => document.getElementById('new-inquiry-panel')
+
+    it('처음에는 펼쳐져 있고, 제목을 누르면 입력 칸이 접히고 다시 누르면 펼쳐진다', async () => {
+      mockServer(baseRoutes())
+      renderApp()
+      await screen.findByRole('heading', { name: '문의 #1' })
+      expect(toggle()).toHaveAttribute('aria-expanded', 'true')
+      expect(toggle()).toHaveAttribute('aria-controls', 'new-inquiry-panel')
+      expect(panel()).not.toHaveClass('collapsed')
+      expect(panel()).not.toHaveAttribute('inert')
+
+      await userEvent.click(toggle())
+      expect(toggle()).toHaveAttribute('aria-expanded', 'false')
+      expect(panel()).toHaveClass('collapsed')
+      expect(panel()).toHaveAttribute('inert') // 접힌 칸은 Tab 키로도 닿지 않는다
+
+      await userEvent.click(toggle())
+      expect(toggle()).toHaveAttribute('aria-expanded', 'true')
+      expect(panel()).not.toHaveClass('collapsed')
+      expect(screen.getByRole('button', { name: '등록' })).toBeInTheDocument()
+    })
+
+    it('접어 두어도 쓰던 글이 남아 있고, CSV 올리기 링크는 접어도 그대로 보인다', async () => {
+      mockServer(baseRoutes())
+      renderApp()
+      await screen.findByRole('heading', { name: '문의 #1' })
+      await userEvent.type(screen.getByLabelText('새 문의 입력'), '쓰던 글입니다.')
+      await userEvent.click(toggle())
+      expect(screen.getByRole('button', { name: /CSV/ })).toBeVisible()
+      await userEvent.click(toggle())
+      expect(screen.getByLabelText('새 문의 입력')).toHaveValue('쓰던 글입니다.')
+    })
+
+    it('접힌 채로 등록 실패 안내가 생기면 저절로 펼쳐진다', async () => {
+      let fail
+      const slow = new Promise((resolve) => (fail = () => resolve(jsonResponse(500, { detail: '등록하지 못했습니다.' }))))
+      mockServer(baseRoutes(makeDetail(), { 'POST /api/inquiries': () => slow }))
+      renderApp()
+      await screen.findByRole('heading', { name: '문의 #1' })
+      await userEvent.type(screen.getByLabelText('새 문의 입력'), '문의입니다.')
+      await userEvent.click(screen.getByRole('button', { name: '등록' })) // 서버가 답하는 중에
+      await userEvent.click(toggle()) // 접는다
+      expect(toggle()).toHaveAttribute('aria-expanded', 'false')
+      fail() // 실패 답이 오면
+      expect(await screen.findByText('등록하지 못했습니다.')).toBeInTheDocument()
+      expect(toggle()).toHaveAttribute('aria-expanded', 'true') // 저절로 펼쳐져 안내가 보인다
+      expect(panel()).not.toHaveClass('collapsed')
+    })
+
+    it('모양: 접힐 때 높이가 부드럽게 줄고(0fr), 움직임 줄이기 설정이면 움직임이 없다', () => {
+      const css = readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf-8')
+      expect(css).toMatch(/\.new-inquiry-panel \{[^}]*grid-template-rows: 1fr;[^}]*transition: grid-template-rows/)
+      expect(css).toMatch(/\.new-inquiry-panel\.collapsed \{[^}]*grid-template-rows: 0fr;[^}]*visibility: hidden/)
+      expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\.new-inquiry-panel,/)
+    })
   })
 
   describe('엔터키', () => {
