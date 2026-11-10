@@ -11,12 +11,12 @@ afterEach(() => {
 })
 
 describe('상단 이름 버튼', () => {
-  it('"고동동 CS"를 누르면 어느 화면에서든 상담 화면으로 이동한다', async () => {
+  it('"CSFlow"를 누르면 어느 화면에서든 상담 화면으로 이동한다', async () => {
     mockServer({ ...baseRoutes(makeDetail()), 'GET /api/logs': [], 'GET /api/action-logs': [] })
     renderApp('/logs')
-    const brand = await screen.findByRole('link', { name: '고동동 CS 상담 화면으로 이동' })
+    const brand = await screen.findByRole('link', { name: 'CSFlow 상담 화면으로 이동' })
     expect(brand).toHaveAttribute('href', '/')
-    expect(brand).toHaveTextContent('고동동 CS')
+    expect(brand).toHaveTextContent('CSFlow')
     await userEvent.click(brand)
     expect(await screen.findByRole('heading', { name: '받은 문의' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '상담' })).toHaveClass('active')

@@ -12,8 +12,8 @@ export default function Layout() {
   return (
     <div className="app">
       <header className="topbar">
-        <Link to="/" className="brand" aria-label="고동동 CS 상담 화면으로 이동">
-          고동동 CS
+        <Link to="/" className="brand" aria-label="CSFlow 상담 화면으로 이동">
+          CSFlow
         </Link>
         <nav aria-label="메뉴" ref={navRef}>
           <PillMark box={box} animate={animate} className="nav-pill" />
