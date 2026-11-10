@@ -25,6 +25,24 @@ describe('api', () => {
     expect(options.headers['Content-Type']).toBe('application/json')
   })
 
+  it('VITE_API_BASE가 있으면 서버 주소를 앞에 붙이고 쿠키를 함께 보낸다', async () => {
+    vi.stubEnv('VITE_API_BASE', 'https://api.example.test/')
+    vi.resetModules()
+    const { api: apiWithBase } = await import('../api.js')
+    const fetchMock = stub(jsonResponse(200, { ok: 1 }))
+    await apiWithBase.approve(3, 7)
+    const [url, options] = fetchMock.mock.calls[0]
+    expect(url).toBe('https://api.example.test/api/inquiries/3/approve')
+    expect(options.credentials).toBe('include')
+    vi.unstubAllEnvs()
+  })
+
+  it('VITE_API_BASE가 없으면 같은 주소(/api)로 보낸다', async () => {
+    const fetchMock = stub(jsonResponse(200, { ok: 1 }))
+    await api.approve(3, 7)
+    expect(fetchMock.mock.calls[0][1].credentials).toBe('same-origin')
+  })
+
   it('204는 본문 없이 성공으로 본다', async () => {
     stub(jsonResponse(204))
     await expect(api.logout()).resolves.toBeNull()

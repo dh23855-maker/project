@@ -14,6 +14,9 @@ const GENERIC_ERROR = '요청을 처리하지 못했습니다. 잠시 후 다시
 // 서버(backend)가 꺼져 있으면 화면 서버가 본문 없는 5xx(502 등)를 돌려준다
 const NO_SERVER_ERROR = '서버에 연결하지 못했습니다. 서버(backend)가 켜져 있는지 확인해 주세요.'
 
+// 화면과 서버가 다른 주소일 때(배포) VITE_API_BASE에 서버 주소를 넣는다. 비워 두면 같은 주소(/api)로 보낸다.
+const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
+
 let onUnauthorized = null
 // 로그인이 풀렸을 때(401) 화면을 로그인으로 돌려보내기 위한 연결
 export function setUnauthorizedHandler(handler) {
@@ -28,11 +31,11 @@ function messageFrom(data) {
 async function request(method, path, body, { quiet401 = false } = {}) {
   let response
   try {
-    response = await fetch(path, {
+    response = await fetch(API_BASE + path, {
       method,
       headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
-      credentials: 'same-origin',
+      credentials: API_BASE ? 'include' : 'same-origin', // 다른 주소의 서버에도 로그인 쿠키를 보낸다
     })
   } catch {
     throw new ApiError(0, NO_SERVER_ERROR)
